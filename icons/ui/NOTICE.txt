@@ -1,0 +1,5 @@
+The UI glyphs in this folder are from Fluent UI System Icons
+(@fluentui/svg-icons 1.1.345, https://github.com/microsoft/fluentui-system-icons),
+Copyright (c) Microsoft Corporation, licensed under the MIT License (see LICENSE).
+The *.svg files are the originals with fill="#3F3F46" added to the root <svg>;
+the *.ico files are rendered from them by tools/iconbake.

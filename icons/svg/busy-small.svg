@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- 16-24 px variant: full-bleed badge, heavier strokes. -->
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#EA9B15"/>
+  <path d="M156 164 V209" stroke="#FCF0DC" stroke-width="34" stroke-linecap="round" stroke-dasharray="0 44"/>
+  <path d="M34 172 H66 C102 172 92 74 128 74 H178" fill="none" stroke="#fff" stroke-width="42"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M160 124 L210 74 L160 24" fill="none" stroke="#fff" stroke-width="42"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

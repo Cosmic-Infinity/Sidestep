@@ -1,0 +1,30 @@
+[package]
+name = "sidestep"
+version = "1.0.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[[bin]]
+name = "Sidestep"
+path = "src/main.rs"
+
+[lib]
+name = "sidestep_core"
+path = "src/lib.rs"
+
+[dependencies]
+nwg = { package = "native-windows-gui", version = "1.0.13", features = ["high-dpi"] }
+
+[features]
+# Layout-check build: asInvoker manifest, --preview-main N / --preview-setup only.
+preview = []
+
+[build-dependencies]
+embed-manifest = "1.4.0"
+embed-resource = "2.4.2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+panic = "abort"
