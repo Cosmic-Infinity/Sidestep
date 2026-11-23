@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Ensure the workflow runs only on the fork and is excluded if ever present in the upstream repo
+jobs:
+  linux:
+    name: Linux (Build & Test)
+    runs-on: ubuntu-latest
+    if: github.repository == 'circuito-suman/Sidestep'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libxkbcommon-dev pkg-config
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Check code formatting
+        run: cargo fmt --check
+
+      - name: Clippy linting
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run unit tests
+        run: cargo test --lib --verbose
+
+      - name: Build release binary
+        run: cargo build --release --verbose
+
+  windows:
+    name: Windows (Build & Test)
+    runs-on: windows-latest
+    if: github.repository == 'circuito-suman/Sidestep'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Clippy linting
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run unit tests
+        run: cargo test --lib --verbose
+
+      - name: Build release binary
+        run: cargo build --release --verbose
