@@ -176,11 +176,7 @@ pub fn is_socks_proxy_active() -> bool {
         }
     }
 
-    if proxy_env_dir().join("proxy.env").is_file() {
-        return true;
-    }
-
-    false
+    proxy_env_dir().join("proxy.env").is_file()
 }
 
 fn proxy_env_dir() -> PathBuf {

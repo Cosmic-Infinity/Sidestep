@@ -55,8 +55,8 @@ pub fn ico_to_ksni_icon(ico_bytes: &[u8], size: u32) -> ksni::Icon {
         .resize_exact(size, size, image::imageops::FilterType::Lanczos3)
         .to_rgba8();
     let mut data = Vec::with_capacity((size * size * 4) as usize);
-    for chunk in resized.chunks_exact(4) {
-        let (r, g, b, a) = (chunk[0], chunk[1], chunk[2], chunk[3]);
+    for pixel in resized.pixels() {
+        let [r, g, b, a] = pixel.0;
         // ksni expects ARGB in network byte order: A, R, G, B
         data.push(a);
         data.push(r);
