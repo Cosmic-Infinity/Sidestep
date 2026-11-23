@@ -14,14 +14,32 @@ pub struct Fonts {
 
 impl Fonts {
     pub fn build(&mut self) -> Result<(), NwgError> {
-        nwg::Font::builder().family("Segoe UI").size(17).build(&mut self.normal)?;
-        nwg::Font::builder().family("Segoe UI").size(15).build(&mut self.small)?;
-        nwg::Font::builder().family("Segoe UI Semibold").size(17).build(&mut self.bold)?;
-        nwg::Font::builder().family("Segoe UI Semibold").size(24).build(&mut self.head)?;
-        nwg::Font::builder().family("Consolas").size(15).build(&mut self.mono)?;
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(17)
+            .build(&mut self.normal)?;
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(15)
+            .build(&mut self.small)?;
+        nwg::Font::builder()
+            .family("Segoe UI Semibold")
+            .size(17)
+            .build(&mut self.bold)?;
+        nwg::Font::builder()
+            .family("Segoe UI Semibold")
+            .size(24)
+            .build(&mut self.head)?;
+        nwg::Font::builder()
+            .family("Consolas")
+            .size(15)
+            .build(&mut self.mono)?;
         // Everything built without an explicit font uses this one.
         let mut global = nwg::Font::default();
-        nwg::Font::builder().family("Segoe UI").size(17).build(&mut global)?;
+        nwg::Font::builder()
+            .family("Segoe UI")
+            .size(17)
+            .build(&mut global)?;
         nwg::Font::set_global_default(Some(global));
         Ok(())
     }
@@ -52,7 +70,12 @@ pub fn button<P: Into<ControlHandle>>(
     pos: (i32, i32),
     size: (i32, i32),
 ) -> Result<(), NwgError> {
-    nwg::Button::builder().text(text).position(pos).size(size).parent(parent).build(out)
+    nwg::Button::builder()
+        .text(text)
+        .position(pos)
+        .size(size)
+        .parent(parent)
+        .build(out)
 }
 
 pub fn check<P: Into<ControlHandle>>(
@@ -62,7 +85,12 @@ pub fn check<P: Into<ControlHandle>>(
     pos: (i32, i32),
     size: (i32, i32),
 ) -> Result<(), NwgError> {
-    nwg::CheckBox::builder().text(text).position(pos).size(size).parent(parent).build(out)
+    nwg::CheckBox::builder()
+        .text(text)
+        .position(pos)
+        .size(size)
+        .parent(parent)
+        .build(out)
 }
 
 pub fn checked(c: &nwg::CheckBox) -> bool {
@@ -70,7 +98,11 @@ pub fn checked(c: &nwg::CheckBox) -> bool {
 }
 
 pub fn set_checked(c: &nwg::CheckBox, v: bool) {
-    c.set_check_state(if v { nwg::CheckBoxState::Checked } else { nwg::CheckBoxState::Unchecked });
+    c.set_check_state(if v {
+        nwg::CheckBoxState::Checked
+    } else {
+        nwg::CheckBoxState::Unchecked
+    });
 }
 
 #[link(name = "gdi32")]
@@ -111,10 +143,16 @@ extern "system" {
 }
 #[link(name = "user32")]
 extern "system" {
-    fn FillRect(hdc: *mut std::ffi::c_void, rect: *const Rect, brush: *mut std::ffi::c_void) -> i32;
+    fn FillRect(hdc: *mut std::ffi::c_void, rect: *const Rect, brush: *mut std::ffi::c_void)
+        -> i32;
     fn GetClientRect(hwnd: *mut std::ffi::c_void, rect: *mut Rect) -> i32;
     fn GetClassLongPtrW(hwnd: *mut std::ffi::c_void, index: i32) -> usize;
-    fn RedrawWindow(hwnd: *mut std::ffi::c_void, rect: *const Rect, rgn: *mut std::ffi::c_void, flags: u32) -> i32;
+    fn RedrawWindow(
+        hwnd: *mut std::ffi::c_void,
+        rect: *const Rect,
+        rgn: *mut std::ffi::c_void,
+        flags: u32,
+    ) -> i32;
 }
 
 /// Paints a coloured band across the top `height` logical px of `window`, behind the header
@@ -146,9 +184,18 @@ pub fn state_band(
         let hdc = wparam as *mut std::ffi::c_void;
         match msg {
             WM_ERASEBKGND => {
-                let mut rc = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+                let mut rc = Rect {
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                };
                 GetClientRect(hwnd, &mut rc);
-                FillRect(hdc, &rc, GetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND) as *mut std::ffi::c_void);
+                FillRect(
+                    hdc,
+                    &rc,
+                    GetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND) as *mut std::ffi::c_void,
+                );
                 rc.bottom = px(height as u32) as i32;
                 FillRect(hdc, &rc, brush(colours.get().0));
                 Some(1)
@@ -199,14 +246,31 @@ fn solid(c: u32) -> *mut std::ffi::c_void {
 /// nwg labels keep the space below their text as a frame (non-client area) and paint it in a
 /// fixed system grey, which shows as a strip once a label is resized. Paint it in `colour()`
 /// instead: white on the tab pages, the band colour in the header.
-pub fn label_frame_fill(label: &ControlHandle, id: usize, colour: impl Fn() -> u32 + 'static) -> Result<nwg::RawEventHandler, NwgError> {
+pub fn label_frame_fill(
+    label: &ControlHandle,
+    id: usize,
+    colour: impl Fn() -> u32 + 'static,
+) -> Result<nwg::RawEventHandler, NwgError> {
     const WM_NCPAINT: u32 = 0x0085;
     nwg::bind_raw_event_handler(label, 0x3_0000 + id, move |hwnd, msg, _w, _l| unsafe {
         if msg != WM_NCPAINT {
             return None;
         }
         let hwnd = hwnd as *mut std::ffi::c_void;
-        let (mut wr, mut cr) = (Rect { left: 0, top: 0, right: 0, bottom: 0 }, Rect { left: 0, top: 0, right: 0, bottom: 0 });
+        let (mut wr, mut cr) = (
+            Rect {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            },
+            Rect {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            },
+        );
         GetWindowRect(hwnd, &mut wr);
         GetClientRect(hwnd, &mut cr);
         let mut origin = [0i32; 2];
@@ -214,7 +278,12 @@ pub fn label_frame_fill(label: &ControlHandle, id: usize, colour: impl Fn() -> u
         let (ox, oy) = (origin[0] - wr.left, origin[1] - wr.top);
         let dc = GetWindowDC(hwnd);
         ExcludeClipRect(dc, ox, oy, ox + cr.right, oy + cr.bottom);
-        let all = Rect { left: 0, top: 0, right: wr.right - wr.left, bottom: wr.bottom - wr.top };
+        let all = Rect {
+            left: 0,
+            top: 0,
+            right: wr.right - wr.left,
+            bottom: wr.bottom - wr.top,
+        };
         FillRect(dc, &all, solid(colour()));
         ReleaseDC(hwnd, dc);
         Some(0)
@@ -256,10 +325,20 @@ pub fn redraw_band(window: &nwg::Window, height: i32) {
     if let Some(h) = window.handle.hwnd() {
         let h = h as *mut std::ffi::c_void;
         unsafe {
-            let mut rc = Rect { left: 0, top: 0, right: 0, bottom: 0 };
+            let mut rc = Rect {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
             GetClientRect(h, &mut rc);
             rc.bottom = px(height as u32) as i32;
-            RedrawWindow(h, &rc, std::ptr::null_mut(), RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | 0x400 /* RDW_FRAME */);
+            RedrawWindow(
+                h,
+                &rc,
+                std::ptr::null_mut(),
+                RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | 0x400, /* RDW_FRAME */
+            );
         }
     }
 }
@@ -287,7 +366,15 @@ pub fn short_path(p: &std::path::Path) -> String {
 
 #[link(name = "user32")]
 extern "system" {
-    fn CreateIconFromResourceEx(bits: *const u8, size: u32, icon: i32, ver: u32, cx: i32, cy: i32, flags: u32) -> *mut std::ffi::c_void;
+    fn CreateIconFromResourceEx(
+        bits: *const u8,
+        size: u32,
+        icon: i32,
+        ver: u32,
+        cx: i32,
+        cy: i32,
+        flags: u32,
+    ) -> *mut std::ffi::c_void;
 }
 
 /// Logical px -> physical px at the current scaling.
@@ -309,15 +396,31 @@ pub fn icon_from_ico(ico: &[u8], size_px: u32) -> nwg::Icon {
         best = Some(match best {
             None => cand,
             Some(b) => {
-                let better = if w >= size_px { b.0 < size_px || w < b.0 } else { b.0 < size_px && w > b.0 };
-                if better { cand } else { b }
+                let better = if w >= size_px {
+                    b.0 < size_px || w < b.0
+                } else {
+                    b.0 < size_px && w > b.0
+                };
+                if better {
+                    cand
+                } else {
+                    b
+                }
             }
         });
     }
     let mut icon = nwg::Icon::default();
     if let Some((_, off, len)) = best {
         let h = unsafe {
-            CreateIconFromResourceEx(ico[off..].as_ptr(), len as u32, 1, 0x0003_0000, size_px as i32, size_px as i32, 0)
+            CreateIconFromResourceEx(
+                ico[off..].as_ptr(),
+                len as u32,
+                1,
+                0x0003_0000,
+                size_px as i32,
+                size_px as i32,
+                0,
+            )
         };
         icon.handle = h as _;
     }
@@ -404,8 +507,18 @@ pub const OFF_ICO: &[u8] = include_bytes!("../icons/off.ico");
 pub const BUSY_ICO: &[u8] = include_bytes!("../icons/busy.ico");
 
 /// A 16 px glyph next to a piece of text.
-pub fn glyph_frame<P: Into<ControlHandle>>(out: &mut nwg::ImageFrame, parent: P, icon: &nwg::Icon, pos: (i32, i32)) -> Result<(), NwgError> {
-    nwg::ImageFrame::builder().icon(Some(icon)).position(pos).size((16, 16)).parent(parent).build(out)
+pub fn glyph_frame<P: Into<ControlHandle>>(
+    out: &mut nwg::ImageFrame,
+    parent: P,
+    icon: &nwg::Icon,
+    pos: (i32, i32),
+) -> Result<(), NwgError> {
+    nwg::ImageFrame::builder()
+        .icon(Some(icon))
+        .position(pos)
+        .size((16, 16))
+        .parent(parent)
+        .build(out)
 }
 
 /// Button with a leading glyph (comctl32 v6 draws icon + text).

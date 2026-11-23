@@ -1,6 +1,6 @@
 # <img src="icons/svg/app.svg" alt="Sidestep icon" width="60" align="absmiddle"> Sidestep
 
-A Windows application that gets game stores (Steam, GOG, Epic, etc.) and _many other sites_ past campus firewalls (even many network provider firewalls) that block by site name (SNI). It runs GoodbyeDPI underneath, checks whether the bypass is actually working, and tunes it for your network on its own.
+A Windows and Linux application that gets game stores (Steam, GOG, Epic, etc.) and _many other sites_ past campus firewalls (even many network provider firewalls) that block by site name (SNI). It runs GoodbyeDPI on Windows and ByeDPI on Linux underneath, checks whether the bypass is actually working, and tunes it for your network on its own.
 
 ![Steam's store fails with "The connection was reset" while Sidestep is off; Sidestep is turned on, goes from Starting to Bypass is on, and the store loads after a refresh](docs/images/sidestep-demo.gif)
 
@@ -52,19 +52,49 @@ here - [docs/android.md](docs/android.md).
 
 ## Build it
 
-[Rust toolchain](https://rust-lang.github.io/rustup/installation/windows-msvc.html) for `x86_64-pc-windows-msvc`:
+### Prerequisites (Linux GUI)
+Standard desktop graphical libraries are required to compile the Linux GUI:
+- **Debian / Ubuntu / Pop!_OS / Linux Mint:**
+  ```sh
+  sudo apt install libxkbcommon-dev libgl1-mesa-dev
+  ```
+- **Fedora / RHEL:**
+  ```sh
+  sudo dnf install libxkbcommon-devel mesa-libGL-devel
+  ```
+- **Arch Linux / Manjaro:**
+  ```sh
+  sudo pacman -S libxkbcommon mesa
+  ```
 
+### Compiling
 ```sh
+# On Linux (X11 & Wayland): produces a single self-contained binary
+cargo build --release            # target/release/Sidestep
+
+# On Windows (x86_64-pc-windows-msvc or GNU):
 cargo build --release            # target/release/Sidestep.exe
 ```
 
-The release build produces `target/release/Sidestep.exe`. That single binary is the whole app; share it as-is.
+The release build produces a single self-contained binary with vendor engines embedded; share it as-is.
 
-For testing -
+For testing:
 
 ```sh
-cargo test --lib                 # no admin needed
-cargo build --features preview   # UI-only build, no admin, never starts GoodbyeDPI
+cargo test --lib                 # tests flags, prober, supervision, and engine integration
+cargo build --features preview   # Windows UI-only build, no admin, never starts GoodbyeDPI
+```
+
+### Linux CLI Usage
+
+```sh
+./Sidestep on         # Start bypass, configure system SOCKS5 proxy, and verify sites
+./Sidestep status     # View bypass health, PID, active TTL and flags
+./Sidestep check      # Probe test sites through bypass
+./Sidestep tune       # Run autonomous TTL search (1..12) to find optimal hop count
+./Sidestep off        # Turn bypass off and restore direct connectivity
+./Sidestep install    # Install to ~/.local/bin with desktop launcher and app icon
+./Sidestep autostart enable # Configure autostart via ~/.config/autostart
 ```
 
 ---
@@ -73,13 +103,14 @@ cargo build --features preview   # UI-only build, no admin, never starts Goodbye
 
 - **Name filtering only.** If a server's IP address is blocked, Sidestep has no effect.
 - **Can break.** A firewall update can stop a working setup; the periodic check and TTL search are there to recover from that. (if it breaks, raise an issue, and I'll try to look into it)
-- Currently **Windows x64 only.** (linux if there's enough demand)
+- Supports **Windows x64** and **Linux x86_64** (Android guide in [docs/android.md](docs/android.md)).
 
 ---
 
 ## External Resources
 
 - [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI) (ValdikSS): Apache-2.0, see `vendor/LICENSE-GoodbyeDPI.txt`
+- [ByeDPI](https://github.com/hufrea/byedpi) (hufrea): MIT, see `vendor/LICENSE-ByeDPI.txt`
 - [WinDivert](https://github.com/basil00/WinDivert) (basil00): LGPLv3 or GPLv2; used here under LGPLv3, see `vendor/LICENSE-WinDivert.txt`
 - [native-windows-gui](https://github.com/gabdube/native-windows-gui): MIT
 - [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) (Microsoft): MIT, see `icons/ui/NOTICE.txt`

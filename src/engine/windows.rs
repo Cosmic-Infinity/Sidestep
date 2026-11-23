@@ -1,10 +1,4 @@
-//! Owns the goodbyedpi.exe child process.
-//!
-//! Honesty guarantees:
-//! * every child is placed in a Job Object with KILL_ON_JOB_CLOSE. The job handle
-//!   lives exactly as long as this app; if the app exits *or crashes*, Windows
-//!   closes the handle and kills goodbyedpi. No tray icon => nothing running.
-//! * if the child can't be put in the job, it is killed and start() fails.
+//! Windows GoodbyeDPI process management via Win32 Job Objects.
 
 use std::ffi::c_void;
 use std::io::{BufRead, BufReader, Read};
@@ -17,6 +11,8 @@ use std::sync::OnceLock;
 use std::time::Instant;
 
 use crate::Ev;
+
+pub type Notifier = nwg::NoticeSender;
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
@@ -116,14 +112,19 @@ impl Engine {
         exe: &Path,
         args: &[String],
         tx: &Sender<Ev>,
-        notice: nwg::NoticeSender,
+        notice: Notifier,
     ) -> Result<u32, String> {
         self.stop();
         let job = job()?;
 
-        let mut child = Command::new(exe)
+        let exe_abs = std::fs::canonicalize(exe).unwrap_or_else(|_| exe.to_path_buf());
+        let cur_dir = match exe_abs.parent() {
+            Some(p) if !p.as_os_str().is_empty() => p,
+            _ => Path::new("."),
+        };
+        let mut child = Command::new(&exe_abs)
             .args(args)
-            .current_dir(exe.parent().unwrap_or(Path::new(".")))
+            .current_dir(cur_dir)
             .creation_flags(CREATE_NO_WINDOW)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -131,13 +132,15 @@ impl Engine {
             .spawn()
             .map_err(|e| format!("failed to launch {}: {e}", exe.display()))?;
 
-        let ok = unsafe { AssignProcessToJobObject(job, child.as_raw_handle() as *mut c_void) };
+        let ok = unsafe { AssignProcessToJobObject(job, child.as_raw_handle()) };
         if ok == 0 {
             let _ = child.kill();
             let _ = child.wait();
-            return Err("could not attach goodbyedpi to the kill-on-close job; refused to run it \
+            return Err(
+                "could not attach goodbyedpi to the kill-on-close job; refused to run it \
                         unsupervised"
-                .into());
+                    .into(),
+            );
         }
 
         self.generation += 1;
@@ -152,7 +155,7 @@ impl Engine {
         let pid = child.id();
         self.child = Some(child);
         self.started_at = Some(Instant::now());
-        self.active_flags = sidestep_core::flags::join(args);
+        self.active_flags = crate::flags::join(args);
         self.confirmed = false;
         Ok(pid)
     }
@@ -184,7 +187,9 @@ impl Engine {
                 self.started_at = None;
                 self.active_flags.clear();
                 self.confirmed = false;
-                Some(format!("goodbyedpi (PID {pid}) exited on its own: {status}"))
+                Some(format!(
+                    "goodbyedpi (PID {pid}) exited on its own: {status}"
+                ))
             }
             Ok(None) => None,
             Err(e) => Some(format!("could not query goodbyedpi status: {e}")),
@@ -196,7 +201,7 @@ fn spawn_reader<R: Read + Send + 'static>(
     stream: R,
     gen: u64,
     tx: Sender<Ev>,
-    notice: nwg::NoticeSender,
+    notice: Notifier,
     is_stdout: bool,
 ) {
     std::thread::spawn(move || {
@@ -228,7 +233,11 @@ pub fn find_goodbyedpi_pids() -> Vec<u32> {
         .lines()
         .filter_map(|l| {
             let cols: Vec<&str> = l.split("\",\"").collect();
-            if cols.len() > 1 && cols[0].trim_matches('"').eq_ignore_ascii_case("goodbyedpi.exe") {
+            if cols.len() > 1
+                && cols[0]
+                    .trim_matches('"')
+                    .eq_ignore_ascii_case("goodbyedpi.exe")
+            {
                 cols[1].trim_matches('"').parse().ok()
             } else {
                 None
