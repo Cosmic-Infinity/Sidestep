@@ -79,19 +79,12 @@ impl eframe::App for SidestepApp {
             self.textures = Some(AppTextures::load(ctx));
         }
 
-        // Handle window close event: minimize to system tray if tray exists, otherwise quit cleanly
+        // Handle window close event: cleanly shut down application, engine, and tray
         if ctx.input(|i| i.viewport().close_requested()) {
             let mut st = self.state.lock().unwrap();
-            if st.has_tray && !st.should_exit {
-                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
-                st.window_visible = false;
-                self.is_window_shown = false;
-            } else {
-                st.should_exit = true;
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                let _ = self.cmd_tx.send(UiCmd::Quit);
-            }
+            st.should_exit = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            let _ = self.cmd_tx.send(UiCmd::Quit);
         }
 
         // Check if supervisor requested window presentation or shutdown
