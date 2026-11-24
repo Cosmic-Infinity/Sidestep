@@ -163,10 +163,12 @@ pub fn install(dir: &Path) -> Result<Mode, String> {
              Type=Application\n\
              Name=Sidestep\n\
              Comment=Autonomous DPI Bypass\n\
-             Exec=\"{}\" daemon\n\
+             Exec=\"{}\"\n\
              Icon=sidestep\n\
              Terminal=false\n\
-             Categories=Network;\n",
+             Categories=Network;\n\
+             StartupWMClass=Sidestep\n\
+             StartupNotify=true\n",
             target.display()
         );
         let _ = std::fs::write(apps_dir.join("sidestep.desktop"), desktop);
