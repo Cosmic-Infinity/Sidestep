@@ -139,9 +139,12 @@ pub fn install(dir: &Path) -> Result<Mode, String> {
 
     if let Ok(me) = std::env::current_exe() {
         if std::fs::canonicalize(&me).ok() != std::fs::canonicalize(&target).ok() {
-            std::fs::copy(&me, &target)
-                .map_err(|e| format!("copying app to {}: {e}", target.display()))?;
-            set_executable(&target);
+            let tmp_target = bin_dir.join(format!(".{APP_EXE}.tmp.{}", std::process::id()));
+            std::fs::copy(&me, &tmp_target)
+                .map_err(|e| format!("copying app to {}: {e}", tmp_target.display()))?;
+            set_executable(&tmp_target);
+            std::fs::rename(&tmp_target, &target)
+                .map_err(|e| format!("installing app to {}: {e}", target.display()))?;
         }
     }
 
