@@ -37,10 +37,21 @@ Default flags: `-e 2 --reverse-frag --max-payload --wrong-chksum`.
 
 ## Use it
 
-Download from the [latest release](https://github.com/Cosmic-Infinity/Sidestep/releases/latest), **First run** asks where to put things
+Download from the [latest release](https://github.com/Cosmic-Infinity/Sidestep/releases/latest).
 
-- **Install** copies the app to a folder you pick, with an optional Start menu shortcut and an uninstall entry in _Settings > Apps_.
+**Windows — first run asks where to put things:**
+
+- **Install** copies the app to a folder you pick, with an optional Start menu shortcut
+  and an uninstall entry in _Settings > Apps_.
 - **Portable** writes only to `Sidestep-data` next to the exe.
+
+**Linux — run from the terminal or install to `~/.local/bin`:**
+
+```sh
+chmod +x ./Sidestep
+./Sidestep on            # start bypass and configure system SOCKS5 proxy
+./Sidestep install       # optional: install to ~/.local/bin and add a desktop launcher
+```
 
 ---
 
@@ -53,7 +64,9 @@ here - [docs/android.md](docs/android.md).
 ## Build it
 
 ### Prerequisites (Linux GUI)
+
 Standard desktop graphical libraries are required to compile the Linux GUI:
+
 - **Debian / Ubuntu / Pop!_OS / Linux Mint:**
   ```sh
   sudo apt install libxkbcommon-dev libgl1-mesa-dev
@@ -85,6 +98,8 @@ cargo test --lib                 # tests flags, prober, supervision, and engine 
 cargo build --features preview   # Windows UI-only build, no admin, never starts GoodbyeDPI
 ```
 
+> **Linux on non-x86_64 or packaging without vendored binaries?** See [docs/linux-ciadpi.md](docs/linux-ciadpi.md).
+
 ### Linux CLI Usage
 
 ```sh
@@ -97,13 +112,51 @@ cargo build --features preview   # Windows UI-only build, no admin, never starts
 ./Sidestep autostart enable # Configure autostart via ~/.config/autostart
 ```
 
+### Linux: routing apps through the bypass
+
+Sidestep configures your desktop's system proxy (GNOME, KDE, or a shell environment
+variable via `all_proxy`) automatically. Most browsers pick this up without any changes.
+
+Some game clients — Steam, Wine-based launchers, and Heroic — ignore the desktop proxy
+and connect directly. Route them through the SOCKS5 proxy at `127.0.0.1:1080` manually:
+
+**Steam:**
+
+```
+steam -tcp
+```
+Steam does not support SOCKS5 natively. Use [ProxyChains-NG](https://github.com/rofl0r/proxychains-ng)
+to wrap it:
+```sh
+# Install proxychains-ng, then edit /etc/proxychains.conf:
+# socks5  127.0.0.1  1080
+
+proxychains4 steam
+```
+
+**Wine / Lutris / Bottles:**
+```sh
+export all_proxy="socks5h://127.0.0.1:1080"
+wine YourGame.exe
+# or for Lutris: set the env var in the game's configuration panel
+```
+
+**curl / wget (testing):**
+```sh
+curl --proxy socks5h://127.0.0.1:1080 https://store.steampowered.com
+```
+
+The port `1080` is the default; it can be changed in Sidestep's Flags tab with `-p <port>`.
+
 ---
 
 ## Limitations
 
 - **Name filtering only.** If a server's IP address is blocked, Sidestep has no effect.
 - **Can break.** A firewall update can stop a working setup; the periodic check and TTL search are there to recover from that. (if it breaks, raise an issue, and I'll try to look into it)
-- Supports **Windows x64** and **Linux x86_64** (Android guide in [docs/android.md](docs/android.md)).
+- Supports **Windows x64**, **Linux x86_64** (GUI + CLI), and other Linux architectures
+  (CLI only, requires [building ciadpi from source](docs/linux-ciadpi.md)).
+  Android: [docs/android.md](docs/android.md).
 
 ---
 
@@ -120,7 +173,5 @@ cargo build --features preview   # Windows UI-only build, no admin, never starts
 > [!NOTE]
 > Sidestep is **not** a VPN. It doesn't route your traffic through another server or add additional encryption. Your network still sees which servers you connect to, though most everyday websites sit on shared CDNs, which are impractical to block by address. Sidestep only keeps the firewall from acting on the site name, it does not bypass IP blocks. Please use responsibly.
 > (P.S. unless you're in China, it's gonna be fine)
-
-
 
 🌟<em>If Sidestep got your games downloading, please star the repo. It costs nothing, and it is the only validation I get. Thanks!</em>🌟
