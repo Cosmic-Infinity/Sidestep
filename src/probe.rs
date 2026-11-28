@@ -70,19 +70,10 @@ pub fn probe_site(host: &str) -> SiteResult {
     probe_site_via(host, None)
 }
 
-fn socks5_connect(
-    proxy: &SocketAddr,
-    host: &str,
-    port: u16,
-) -> Result<TcpStream, (Verdict, String)> {
+fn socks5_connect(proxy: &SocketAddr, host: &str, port: u16) -> Result<TcpStream, (Verdict, String)> {
     let mut s = match TcpStream::connect_timeout(proxy, Duration::from_secs(3)) {
         Ok(s) => s,
-        Err(e) => {
-            return Err((
-                Verdict::Unreachable,
-                format!("connect to proxy {proxy} failed: {e}"),
-            ))
-        }
+        Err(e) => return Err((Verdict::Unreachable, format!("connect to proxy {proxy} failed: {e}"))),
     };
     let _ = s.set_nodelay(true);
     let _ = s.set_read_timeout(Some(Duration::from_secs(6)));
@@ -90,23 +81,14 @@ fn socks5_connect(
 
     // SOCKS5 greeting: [VER=5, NMETHODS=1, METHOD=0 (no auth)]
     if let Err(e) = s.write_all(&[0x05, 0x01, 0x00]) {
-        return Err((
-            Verdict::Unreachable,
-            format!("SOCKS5 greeting send failed: {e}"),
-        ));
+        return Err((Verdict::Unreachable, format!("SOCKS5 greeting send failed: {e}")));
     }
     let mut resp = [0u8; 2];
     if let Err(e) = s.read_exact(&mut resp) {
-        return Err((
-            Verdict::Unreachable,
-            format!("SOCKS5 greeting read failed: {e}"),
-        ));
+        return Err((Verdict::Unreachable, format!("SOCKS5 greeting read failed: {e}")));
     }
     if resp != [0x05, 0x00] {
-        return Err((
-            Verdict::Unreachable,
-            format!("SOCKS5 auth rejected: {resp:?}"),
-        ));
+        return Err((Verdict::Unreachable, format!("SOCKS5 auth rejected: {resp:?}")));
     }
 
     // SOCKS5 connect request: [VER=5, CMD=1, RSV=0, ATYP=3 (domain), LEN, host, PORT]
@@ -119,24 +101,15 @@ fn socks5_connect(
     req.extend_from_slice(h_bytes);
     req.extend_from_slice(&port.to_be_bytes());
     if let Err(e) = s.write_all(&req) {
-        return Err((
-            Verdict::Unreachable,
-            format!("SOCKS5 connect request failed: {e}"),
-        ));
+        return Err((Verdict::Unreachable, format!("SOCKS5 connect request failed: {e}")));
     }
 
     let mut reply = [0u8; 4];
     if let Err(e) = s.read_exact(&mut reply) {
-        return Err((
-            Verdict::Blocked,
-            format!("SOCKS5 connect reply read failed: {e}"),
-        ));
+        return Err((Verdict::Blocked, format!("SOCKS5 connect reply read failed: {e}")));
     }
     if reply[0] != 0x05 || reply[1] != 0x00 {
-        return Err((
-            Verdict::Blocked,
-            format!("SOCKS5 connect rejected with status 0x{:02x}", reply[1]),
-        ));
+        return Err((Verdict::Blocked, format!("SOCKS5 connect rejected with status 0x{:02x}", reply[1])));
     }
     let to_skip = match reply[3] {
         1 => 4 + 2,
@@ -144,10 +117,7 @@ fn socks5_connect(
         3 => {
             let mut len = [0u8; 1];
             if let Err(e) = s.read_exact(&mut len) {
-                return Err((
-                    Verdict::Unreachable,
-                    format!("SOCKS5 bnd.addr len read failed: {e}"),
-                ));
+                return Err((Verdict::Unreachable, format!("SOCKS5 bnd.addr len read failed: {e}")));
             }
             len[0] as usize + 2
         }
@@ -155,20 +125,13 @@ fn socks5_connect(
     };
     let mut skip_buf = vec![0u8; to_skip];
     if let Err(e) = s.read_exact(&mut skip_buf) {
-        return Err((
-            Verdict::Unreachable,
-            format!("SOCKS5 bnd.addr read failed: {e}"),
-        ));
+        return Err((Verdict::Unreachable, format!("SOCKS5 bnd.addr read failed: {e}")));
     }
     Ok(s)
 }
 
 pub fn probe_site_via(host: &str, proxy: Option<SocketAddr>) -> SiteResult {
-    let r = |verdict, detail: String| SiteResult {
-        host: host.to_string(),
-        verdict,
-        detail,
-    };
+    let r = |verdict, detail: String| SiteResult { host: host.to_string(), verdict, detail };
 
     let (mut s, target_info) = if let Some(p) = proxy {
         match socks5_connect(&p, host, 443) {
@@ -186,12 +149,7 @@ pub fn probe_site_via(host: &str, proxy: Option<SocketAddr>) -> SiteResult {
 
         let s = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
             Ok(s) => s,
-            Err(e) => {
-                return r(
-                    Verdict::Unreachable,
-                    format!("TCP connect to {addr} failed: {e}"),
-                )
-            }
+            Err(e) => return r(Verdict::Unreachable, format!("TCP connect to {addr} failed: {e}")),
         };
         let _ = s.set_nodelay(true);
         let _ = s.set_read_timeout(Some(Duration::from_secs(6)));
@@ -205,35 +163,17 @@ pub fn probe_site_via(host: &str, proxy: Option<SocketAddr>) -> SiteResult {
 
     let mut buf = [0u8; 5];
     match s.read(&mut buf) {
-        Ok(0) => r(
-            Verdict::Blocked,
-            "connection closed right after ClientHello".into(),
-        ),
+        Ok(0) => r(Verdict::Blocked, "connection closed right after ClientHello".into()),
         Ok(_) if buf[0] == 0x16 => r(Verdict::Pass, format!("ServerHello {target_info}")),
-        Ok(_) if buf[0] == 0x15 => r(
-            Verdict::Pass,
-            format!("TLS alert {target_info} (server reached)"),
-        ),
-        Ok(_) => r(
-            Verdict::Pass,
-            format!("non-TLS reply {target_info} (server reached)"),
-        ),
-        Err(e)
-            if matches!(
-                e.kind(),
-                ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted
-            ) =>
-        {
+        Ok(_) if buf[0] == 0x15 => r(Verdict::Pass, format!("TLS alert {target_info} (server reached)")),
+        Ok(_) => r(Verdict::Pass, format!("non-TLS reply {target_info} (server reached)")),
+        Err(e) if matches!(e.kind(), ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted) => {
             r(Verdict::Blocked, "reset after ClientHello (DPI RST)".into())
         }
-        Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => r(
-            Verdict::Blocked,
-            "no reply 6s after ClientHello (dropped)".into(),
-        ),
-        Err(e) => r(
-            Verdict::Blocked,
-            format!("read error after ClientHello: {e}"),
-        ),
+        Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {
+            r(Verdict::Blocked, "no reply 6s after ClientHello (dropped)".into())
+        }
+        Err(e) => r(Verdict::Blocked, format!("read error after ClientHello: {e}")),
     }
 }
 
@@ -241,13 +181,8 @@ pub fn probe_site_via(host: &str, proxy: Option<SocketAddr>) -> SiteResult {
 
 fn rand32() -> [u8; 32] {
     static CTR: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
-    let t = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(1);
-    let mut x = t
-        ^ CTR.fetch_add(0x9E37_79B9_7F4A_7C15, Ordering::Relaxed)
-        ^ (std::process::id() as u64) << 32;
+    let t = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(1);
+    let mut x = t ^ CTR.fetch_add(0x9E37_79B9_7F4A_7C15, Ordering::Relaxed) ^ (std::process::id() as u64) << 32;
     let mut out = [0u8; 32];
     for chunk in out.chunks_mut(8) {
         // xorshift64*
@@ -286,9 +221,7 @@ fn client_hello(host: &str) -> Vec<u8> {
     ext(&mut e, 0x000b, &[0x01, 0x00]);
     // signature_algorithms
     let mut sa = Vec::new();
-    let algs: [u16; 8] = [
-        0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601,
-    ];
+    let algs: [u16; 8] = [0x0403, 0x0804, 0x0401, 0x0503, 0x0805, 0x0501, 0x0806, 0x0601];
     u16be(&mut sa, algs.len() * 2);
     for a in algs {
         u16be(&mut sa, a as usize);
@@ -336,10 +269,7 @@ mod tests {
     use super::*;
     #[test]
     fn hosts() {
-        assert_eq!(
-            normalize_host("https://store.steampowered.com/app/1/x").unwrap(),
-            "store.steampowered.com"
-        );
+        assert_eq!(normalize_host("https://store.steampowered.com/app/1/x").unwrap(), "store.steampowered.com");
         assert_eq!(normalize_host("GOG.com:443").unwrap(), "gog.com");
         assert!(normalize_host("localhost").is_none());
     }

@@ -105,9 +105,7 @@ impl Engine {
                 self.started_at = None;
                 self.active_flags.clear();
                 self.confirmed = false;
-                Some(format!(
-                    "bypass engine (PID {pid}) exited on its own: {status}"
-                ))
+                Some(format!("bypass engine (PID {pid}) exited on its own: {status}"))
             }
             Ok(None) => None,
             Err(e) => Some(format!("could not query bypass engine status: {e}")),

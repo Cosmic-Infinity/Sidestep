@@ -1,4 +1,4 @@
-//! Core DPI bypass logic, prober, flags, and engine supervision.
+//! Pure, side-effect-free parts of DPI Toggle (testable without elevation).
 pub mod engine;
 pub mod flags;
 pub mod probe;
@@ -14,10 +14,7 @@ pub enum Ev {
     Log(String),
     GdpiLine(u64, String),
     GdpiEof(u64),
-    Probe {
-        verdict: probe::Verdict,
-        lines: Vec<String>,
-    },
+    Probe { verdict: probe::Verdict, lines: Vec<String> },
     TuneStep(u8, usize, usize, String),
     TuneDone(Result<(u8, String), String>),
 }

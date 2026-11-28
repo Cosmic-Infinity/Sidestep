@@ -38,9 +38,7 @@ pub fn set_data_dir(dir: PathBuf) {
 }
 
 pub fn data_dir() -> PathBuf {
-    DIR.get()
-        .cloned()
-        .expect("set_data_dir() must be called before data_dir()")
+    DIR.get().cloned().expect("data dir not chosen yet")
 }
 
 fn path() -> PathBuf {
@@ -52,13 +50,9 @@ fn path() -> PathBuf {
 impl Config {
     pub fn load() -> Config {
         let mut c = Config::default();
-        let Ok(text) = std::fs::read_to_string(path()) else {
-            return c;
-        };
+        let Ok(text) = std::fs::read_to_string(path()) else { return c };
         for line in text.lines() {
-            let Some((k, v)) = line.split_once('=') else {
-                continue;
-            };
+            let Some((k, v)) = line.split_once('=') else { continue };
             let v = v.trim();
             match k.trim() {
                 "flags" => c.flags = v.to_string(),

@@ -31,6 +31,8 @@ use sidestep_core::{flags, probe};
 const LOG_LINES: usize = 500;
 const APP: &str = setup::APP_NAME;
 
+
+
 // ----------------------------------------------------------------- win32 bits
 
 #[link(name = "kernel32")]
@@ -54,7 +56,7 @@ fn single_instance() -> bool {
     let name: Vec<u16> = "Local\\Sidestep.Instance\0".encode_utf16().collect();
     unsafe {
         let h = CreateMutexW(std::ptr::null_mut(), 0, name.as_ptr());
-        !(h.is_null() || GetLastError() == 183/* ERROR_ALREADY_EXISTS */)
+        !(h.is_null() || GetLastError() == 183 /* ERROR_ALREADY_EXISTS */)
     }
     // handle intentionally leaked: held until process exit
 }
@@ -65,12 +67,7 @@ fn hms(d: Duration) -> String {
 }
 
 fn ask_yes_no(parent: Option<&nwg::Window>, title: &str, text: &str) -> bool {
-    let p = nwg::MessageParams {
-        title,
-        content: text,
-        buttons: nwg::MessageButtons::YesNo,
-        icons: nwg::MessageIcons::Question,
-    };
+    let p = nwg::MessageParams { title, content: text, buttons: nwg::MessageButtons::YesNo, icons: nwg::MessageIcons::Question };
     let choice = match parent {
         Some(w) => nwg::modal_message(w, &p),
         None => nwg::message(&p),
@@ -215,10 +212,7 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
     use kit::{check, glyph_frame, icon_button, icon_from_ico, label, px};
     ui.fonts.build()?;
     ui.g = Glyphs::load();
-    let tray_px = unsafe {
-        GetSystemMetrics(49 /* SM_CXSMICON */)
-    }
-    .max(16) as u32;
+    let tray_px = unsafe { GetSystemMetrics(49 /* SM_CXSMICON */) }.max(16) as u32;
     ui.app_icon = icon_from_ico(kit::APP_ICO, px(32));
     ui.tray_on = icon_from_ico(kit::ON_ICO, tray_px);
     ui.tray_off = icon_from_ico(kit::OFF_ICO, tray_px);
@@ -233,9 +227,7 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
         .position((360, 120))
         .title(APP)
         .icon(Some(&ui.app_icon))
-        .flags(
-            nwg::WindowFlags::WINDOW | nwg::WindowFlags::MINIMIZE_BOX | nwg::WindowFlags::RESIZABLE,
-        )
+        .flags(nwg::WindowFlags::WINDOW | nwg::WindowFlags::MINIMIZE_BOX | nwg::WindowFlags::RESIZABLE)
         .build(&mut ui.window)?;
     let w = &ui.window;
 
@@ -244,62 +236,19 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
         .icon(Some(&ui.tray_off))
         .tip(Some("Sidestep: off"))
         .build(&mut ui.tray)?;
-    nwg::Menu::builder()
-        .popup(true)
-        .parent(w)
-        .build(&mut ui.tray_menu)?;
-    nwg::MenuItem::builder()
-        .text("Bypass on")
-        .parent(&ui.tray_menu)
-        .build(&mut ui.mi_toggle)?;
-    nwg::MenuItem::builder()
-        .text("Open Sidestep")
-        .parent(&ui.tray_menu)
-        .build(&mut ui.mi_open)?;
-    nwg::MenuItem::builder()
-        .text("Find TTL now")
-        .parent(&ui.tray_menu)
-        .build(&mut ui.mi_tune)?;
-    nwg::MenuSeparator::builder()
-        .parent(&ui.tray_menu)
-        .build(&mut ui.mi_sep)?;
-    nwg::MenuItem::builder()
-        .text("Exit")
-        .parent(&ui.tray_menu)
-        .build(&mut ui.mi_exit)?;
+    nwg::Menu::builder().popup(true).parent(w).build(&mut ui.tray_menu)?;
+    nwg::MenuItem::builder().text("Bypass on").parent(&ui.tray_menu).build(&mut ui.mi_toggle)?;
+    nwg::MenuItem::builder().text("Open Sidestep").parent(&ui.tray_menu).build(&mut ui.mi_open)?;
+    nwg::MenuItem::builder().text("Find TTL now").parent(&ui.tray_menu).build(&mut ui.mi_tune)?;
+    nwg::MenuSeparator::builder().parent(&ui.tray_menu).build(&mut ui.mi_sep)?;
+    nwg::MenuItem::builder().text("Exit").parent(&ui.tray_menu).build(&mut ui.mi_exit)?;
     nwg::Notice::builder().parent(w).build(&mut ui.notice)?;
 
     // ---- header
-    nwg::ImageFrame::builder()
-        .icon(Some(&ui.big_off))
-        .position((20, 18))
-        .size((40, 40))
-        .parent(w)
-        .build(&mut ui.img_state)?;
-    label(
-        &mut ui.lbl_head,
-        w,
-        "Bypass is off",
-        (74, 12),
-        (330, 32),
-        &f.head,
-    )?;
-    label(
-        &mut ui.lbl_sub,
-        w,
-        "Nothing is filtering.",
-        (75, 46),
-        (330, 20),
-        &f.small,
-    )?;
-    icon_button(
-        &mut ui.btn_toggle,
-        w,
-        "Turn on",
-        &g.power,
-        (420, 16),
-        (120, 46),
-    )?;
+    nwg::ImageFrame::builder().icon(Some(&ui.big_off)).position((20, 18)).size((40, 40)).parent(w).build(&mut ui.img_state)?;
+    label(&mut ui.lbl_head, w, "Bypass is off", (74, 12), (330, 32), &f.head)?;
+    label(&mut ui.lbl_sub, w, "Nothing is filtering.", (75, 46), (330, 20), &f.small)?;
+    icon_button(&mut ui.btn_toggle, w, "Turn on", &g.power, (420, 16), (120, 46))?;
     ui.btn_toggle.set_font(Some(&f.bold));
     nwg::ProgressBar::builder()
         .flags(nwg::ProgressBarFlags::MARQUEE)
@@ -308,70 +257,33 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
         .parent(w)
         .build(&mut ui.pb_busy)?;
     ui.pb_busy.set_marquee(true, 25);
-    nwg::ProgressBar::builder()
-        .flags(nwg::ProgressBarFlags::empty())
-        .position((20, 72))
-        .size((520, 5))
-        .parent(w)
-        .build(&mut ui.pb_steps)?;
+    nwg::ProgressBar::builder().flags(nwg::ProgressBarFlags::empty()).position((20, 72)).size((520, 5)).parent(w).build(&mut ui.pb_steps)?;
     ui.band_colours.set(BAND_OFF);
-    ui.band = Some(kit::state_band(
-        &w.handle,
-        BAND_H,
-        ui.band_colours.clone(),
-        &ui.lbl_head.handle,
-    )?);
+    ui.band = Some(kit::state_band(&w.handle, BAND_H, ui.band_colours.clone(), &ui.lbl_head.handle)?);
 
     // ---- tabs (with glyphs)
-    nwg::TabsContainer::builder()
-        .position((12, 84))
-        .size((536, 426))
-        .parent(w)
-        .build(&mut ui.tabs)?;
-    nwg::ImageList::builder()
-        .size((px(16) as i32, px(16) as i32))
-        .build(&mut ui.tab_icons)?;
+    nwg::TabsContainer::builder().position((12, 84)).size((536, 426)).parent(w).build(&mut ui.tabs)?;
+    nwg::ImageList::builder().size((px(16) as i32, px(16) as i32)).build(&mut ui.tab_icons)?;
     for icon in [&g.status, &g.flags, &g.log, &g.settings] {
         ui.tab_icons.add_icon(icon);
     }
     ui.tabs.set_image_list(Some(&ui.tab_icons));
-    nwg::Tab::builder()
-        .text("Status")
-        .parent(&ui.tabs)
-        .build(&mut ui.tab_status)?;
-    nwg::Tab::builder()
-        .text("Flags")
-        .parent(&ui.tabs)
-        .build(&mut ui.tab_flags)?;
-    nwg::Tab::builder()
-        .text("Log")
-        .parent(&ui.tabs)
-        .build(&mut ui.tab_log)?;
-    nwg::Tab::builder()
-        .text("Settings")
-        .parent(&ui.tabs)
-        .build(&mut ui.tab_settings)?;
-    for (i, page) in [&ui.tab_status, &ui.tab_flags, &ui.tab_log, &ui.tab_settings]
-        .iter()
-        .enumerate()
-    {
+    nwg::Tab::builder().text("Status").parent(&ui.tabs).build(&mut ui.tab_status)?;
+    nwg::Tab::builder().text("Flags").parent(&ui.tabs).build(&mut ui.tab_flags)?;
+    nwg::Tab::builder().text("Log").parent(&ui.tabs).build(&mut ui.tab_log)?;
+    nwg::Tab::builder().text("Settings").parent(&ui.tabs).build(&mut ui.tab_settings)?;
+    for (i, page) in [&ui.tab_status, &ui.tab_flags, &ui.tab_log, &ui.tab_settings].iter().enumerate() {
         page.set_image_index(Some(i as i32));
         ui.page_hooks.push(kit::white_statics(&page.handle, i)?);
     }
 
     // ---- Status
     let t = &ui.tab_status;
-    let row_icons = [
-        &g.engine, &g.pid, &g.clock, &g.ttl, &g.flag, &g.check, &g.chart,
-    ];
+    let row_icons = [&g.engine, &g.pid, &g.clock, &g.ttl, &g.flag, &g.check, &g.chart];
     let mut y = 16;
     for (i, (name, _)) in ROWS.iter().enumerate() {
         let h = if i == R_FLAGS { 44 } else { 22 };
-        let (mut gl, mut n, mut v) = (
-            nwg::ImageFrame::default(),
-            nwg::Label::default(),
-            nwg::Label::default(),
-        );
+        let (mut gl, mut n, mut v) = (nwg::ImageFrame::default(), nwg::Label::default(), nwg::Label::default());
         glyph_frame(&mut gl, t, row_icons[i], (16, y + 2))?;
         label(&mut n, t, name, (42, y + 1), (104, 22), &f.small)?;
         let vx = if i == R_CHECK { 174 } else { 150 };
@@ -384,57 +296,17 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
         ui.row_values.push(v);
         y += h + 8;
     }
-    icon_button(
-        &mut ui.btn_check,
-        t,
-        "Check now",
-        &g.check,
-        (16, 304),
-        (132, 34),
-    )?;
-    icon_button(
-        &mut ui.btn_tune,
-        t,
-        "Find TTL now",
-        &g.tune,
-        (156, 304),
-        (152, 34),
-    )?;
-    icon_button(
-        &mut ui.btn_status_help,
-        t,
-        "Help",
-        &g.help,
-        (404, 304),
-        (96, 34),
-    )?;
+    icon_button(&mut ui.btn_check, t, "Check now", &g.check, (16, 304), (132, 34))?;
+    icon_button(&mut ui.btn_tune, t, "Find TTL now", &g.tune, (156, 304), (152, 34))?;
+    icon_button(&mut ui.btn_status_help, t, "Help", &g.help, (404, 304), (96, 34))?;
 
     // ---- Flags
     let t = &ui.tab_flags;
-    nwg::TextInput::builder()
-        .position((16, 14))
-        .size((484, 30))
-        .font(Some(&f.mono))
-        .parent(t)
-        .build(&mut ui.txt_flags)?;
+    nwg::TextInput::builder().position((16, 14)).size((484, 30)).font(Some(&f.mono)).parent(t).build(&mut ui.txt_flags)?;
     icon_button(&mut ui.btn_apply, t, "Apply", &g.apply, (16, 52), (100, 32))?;
-    icon_button(
-        &mut ui.btn_defaults,
-        t,
-        "Restore defaults",
-        &g.undo,
-        (124, 52),
-        (170, 32),
-    )?;
+    icon_button(&mut ui.btn_defaults, t, "Restore defaults", &g.undo, (124, 52), (170, 32))?;
     glyph_frame(&mut ui.img_ref, t, &g.help, (16, 101))?;
-    label(
-        &mut ui.lbl_ref,
-        t,
-        "All goodbyedpi flags. Select one to see what it does.",
-        (40, 98),
-        (460, 22),
-        &f.bold,
-    )?;
+    label(&mut ui.lbl_ref, t, "All goodbyedpi flags. Select one to see what it does.", (40, 98), (460, 22), &f.bold)?;
     nwg::ListView::builder()
         .list_style(nwg::ListViewStyle::Detailed)
         .ex_flags(nwg::ListViewExFlags::FULL_ROW_SELECT)
@@ -448,15 +320,7 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
         .size((484, 170))
         .parent(t)
         .build(&mut ui.lst_flags)?;
-    for (i, (title, width)) in [
-        ("Used", 46),
-        ("Flag", 126),
-        ("Group", 78),
-        ("What it does", 212),
-    ]
-    .iter()
-    .enumerate()
-    {
+    for (i, (title, width)) in [("Used", 46), ("Flag", 126), ("Group", 78), ("What it does", 212)].iter().enumerate() {
         ui.lst_flags.insert_column(nwg::InsertListViewColumn {
             index: Some(i as i32),
             fmt: None,
@@ -470,160 +334,45 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
             flags::Value::Optional => format!("{} [value]", info.flag),
             flags::Value::None => info.flag.to_string(),
         };
-        ui.lst_flags.insert_items_row(
-            None,
-            &[
-                String::new(),
-                flag,
-                info.group.to_string(),
-                info.text.to_string(),
-            ],
-        );
+        ui.lst_flags.insert_items_row(None, &[String::new(), flag, info.group.to_string(), info.text.to_string()]);
     }
-    label(
-        &mut ui.lbl_flag_detail,
-        t,
-        "",
-        (16, 302),
-        (360, 58),
-        &f.small,
-    )?;
-    icon_button(
-        &mut ui.btn_flag_toggle,
-        t,
-        "Add",
-        &g.plus,
-        (384, 304),
-        (116, 32),
-    )?;
+    label(&mut ui.lbl_flag_detail, t, "", (16, 302), (360, 58), &f.small)?;
+    icon_button(&mut ui.btn_flag_toggle, t, "Add", &g.plus, (384, 304), (116, 32))?;
     ui.btn_flag_toggle.set_enabled(false);
 
     // ---- Log
     let t = &ui.tab_log;
-    for (tb, wrap) in [
-        (&mut ui.console_wrap, true),
-        (&mut ui.console_nowrap, false),
-    ] {
+    for (tb, wrap) in [(&mut ui.console_wrap, true), (&mut ui.console_nowrap, false)] {
         let mut fl = nwg::TextBoxFlags::VSCROLL | nwg::TextBoxFlags::AUTOVSCROLL;
         if !wrap {
             fl |= nwg::TextBoxFlags::HSCROLL | nwg::TextBoxFlags::AUTOHSCROLL;
         }
-        nwg::TextBox::builder()
-            .position((16, 14))
-            .size((484, 296))
-            .readonly(true)
-            .font(Some(&f.mono))
-            .flags(fl)
-            .parent(t)
-            .build(tb)?;
+        nwg::TextBox::builder().position((16, 14)).size((484, 296)).readonly(true).font(Some(&f.mono)).flags(fl).parent(t).build(tb)?;
         tb.set_limit(1_000_000);
     }
     check(&mut ui.chk_wrap, t, "Wrap long lines", (16, 322), (240, 26))?;
-    icon_button(
-        &mut ui.btn_clear_log,
-        t,
-        "Clear",
-        &g.clear,
-        (400, 318),
-        (100, 32),
-    )?;
+    icon_button(&mut ui.btn_clear_log, t, "Clear", &g.clear, (400, 318), (100, 32))?;
 
     // ---- Settings
     let t = &ui.tab_settings;
     glyph_frame(&mut ui.img_detect, t, &g.shield, (16, 15))?;
-    label(
-        &mut ui.hdr_detect,
-        t,
-        "Block detection",
-        (40, 12),
-        (460, 22),
-        &f.bold,
-    )?;
+    label(&mut ui.hdr_detect, t, "Block detection", (40, 12), (460, 22), &f.bold)?;
     glyph_frame(&mut ui.img_sites, t, &g.globe, (40, 47))?;
-    label(
-        &mut ui.lbl_sites,
-        t,
-        "Test sites",
-        (62, 44),
-        (60, 22),
-        &f.normal,
-    )?;
-    nwg::TextInput::builder()
-        .position((124, 40))
-        .size((376, 28))
-        .parent(t)
-        .build(&mut ui.txt_sites)?;
-    check(
-        &mut ui.chk_autotune,
-        t,
-        "Search for a working TTL when a check is blocked",
-        (124, 74),
-        (376, 24),
-    )?;
-    label(
-        &mut ui.lbl_detect_hint,
-        t,
-        "",
-        (124, 100),
-        (376, 20),
-        &f.small,
-    )?;
+    label(&mut ui.lbl_sites, t, "Test sites", (62, 44), (60, 22), &f.normal)?;
+    nwg::TextInput::builder().position((124, 40)).size((376, 28)).parent(t).build(&mut ui.txt_sites)?;
+    check(&mut ui.chk_autotune, t, "Search for a working TTL when a check is blocked", (124, 74), (376, 24))?;
+    label(&mut ui.lbl_detect_hint, t, "", (124, 100), (376, 20), &f.small)?;
 
     glyph_frame(&mut ui.img_startup, t, &g.rocket, (16, 139))?;
-    label(
-        &mut ui.hdr_startup,
-        t,
-        "Startup",
-        (40, 136),
-        (460, 22),
-        &f.bold,
-    )?;
-    check(
-        &mut ui.chk_logon,
-        t,
-        "Launch Sidestep at logon (tray icon always visible)",
-        (40, 164),
-        (460, 24),
-    )?;
-    check(
-        &mut ui.chk_on_logon,
-        t,
-        "...and turn the bypass on when it launches",
-        (60, 190),
-        (440, 24),
-    )?;
+    label(&mut ui.hdr_startup, t, "Startup", (40, 136), (460, 22), &f.bold)?;
+    check(&mut ui.chk_logon, t, "Launch Sidestep at logon (tray icon always visible)", (40, 164), (460, 24))?;
+    check(&mut ui.chk_on_logon, t, "...and turn the bypass on when it launches", (60, 190), (440, 24))?;
 
     glyph_frame(&mut ui.img_install, t, &g.folder, (16, 233))?;
-    label(
-        &mut ui.hdr_install,
-        t,
-        "Installation",
-        (40, 230),
-        (460, 22),
-        &f.bold,
-    )?;
-    nwg::TextInput::builder()
-        .position((40, 258))
-        .size((322, 28))
-        .readonly(true)
-        .parent(t)
-        .build(&mut ui.txt_where)?;
-    icon_button(
-        &mut ui.btn_uninstall,
-        t,
-        "Uninstall",
-        &g.trash,
-        (370, 257),
-        (130, 30),
-    )?;
-    label(
-        &mut ui.lbl_install_hint,
-        t,
-        "",
-        (40, 294),
-        (460, 40),
-        &f.small,
-    )?;
+    label(&mut ui.hdr_install, t, "Installation", (40, 230), (460, 22), &f.bold)?;
+    nwg::TextInput::builder().position((40, 258)).size((322, 28)).readonly(true).parent(t).build(&mut ui.txt_where)?;
+    icon_button(&mut ui.btn_uninstall, t, "Uninstall", &g.trash, (370, 257), (130, 30))?;
+    label(&mut ui.lbl_install_hint, t, "", (40, 294), (460, 40), &f.small)?;
 
     // ---- tooltips
     let mut tips = nwg::Tooltip::builder();
@@ -643,28 +392,22 @@ fn build_ui(ui: &mut Ui) -> Result<(), nwg::NwgError> {
     let mut id = 0;
     for l in [&ui.lbl_head, &ui.lbl_sub] {
         let c = ui.band_colours.clone();
-        ui.page_hooks
-            .push(kit::label_frame_fill(&l.handle, id, move || c.get().0)?);
+        ui.page_hooks.push(kit::label_frame_fill(&l.handle, id, move || c.get().0)?);
         id += 1;
     }
-    let page_labels = ui
-        .row_names
-        .iter()
-        .chain(ui.row_values.iter())
-        .map(|l| &l.handle)
-        .chain([
-            &ui.lbl_ref.handle,
-            &ui.lbl_flag_detail.handle,
-            &ui.hdr_detect.handle,
-            &ui.lbl_sites.handle,
-            &ui.lbl_detect_hint.handle,
-            &ui.hdr_startup.handle,
-            &ui.hdr_install.handle,
-            &ui.lbl_install_hint.handle,
-            &ui.txt_flags.handle,
-            &ui.txt_sites.handle,
-            &ui.txt_where.handle,
-        ]);
+    let page_labels = ui.row_names.iter().chain(ui.row_values.iter()).map(|l| &l.handle).chain([
+        &ui.lbl_ref.handle,
+        &ui.lbl_flag_detail.handle,
+        &ui.hdr_detect.handle,
+        &ui.lbl_sites.handle,
+        &ui.lbl_detect_hint.handle,
+        &ui.hdr_startup.handle,
+        &ui.hdr_install.handle,
+        &ui.lbl_install_hint.handle,
+        &ui.txt_flags.handle,
+        &ui.txt_sites.handle,
+        &ui.txt_where.handle,
+    ]);
     let mut hooks = Vec::new();
     for l in page_labels {
         hooks.push(kit::label_frame_fill(l, id, || 0x00FF_FFFF)?);
@@ -757,11 +500,7 @@ impl App {
     }
 
     fn balloon(&self, title: &str, text: &str, warn: bool) {
-        let flags = if warn {
-            nwg::TrayNotificationFlags::WARNING_ICON
-        } else {
-            nwg::TrayNotificationFlags::INFO_ICON
-        };
+        let flags = if warn { nwg::TrayNotificationFlags::WARNING_ICON } else { nwg::TrayNotificationFlags::INFO_ICON };
         self.ui.tray.show(text, Some(title), Some(flags), None);
     }
 
@@ -771,30 +510,19 @@ impl App {
 
     // ---------- flags tab
     fn selected_flag(&self) -> Option<&'static flags::FlagInfo> {
-        self.ui
-            .lst_flags
-            .selected_item()
-            .and_then(|i| flags::ALL.get(i))
+        self.ui.lst_flags.selected_item().and_then(|i| flags::ALL.get(i))
     }
 
     /// Re-marks flags in use (✓) and updates the detail pane.
     fn refresh_flags_tab(&self) {
         let text = self.ui.txt_flags.text();
-        let marks: Vec<bool> = flags::ALL
-            .iter()
-            .map(|i| flags::uses(&text, i.flag))
-            .collect();
+        let marks: Vec<bool> = flags::ALL.iter().map(|i| flags::uses(&text, i.flag)).collect();
         let old = std::mem::replace(&mut self.st.borrow_mut().flag_marks, marks.clone());
         for (row, &m) in marks.iter().enumerate() {
             if old.get(row) != Some(&m) {
                 self.ui.lst_flags.update_item(
                     row,
-                    nwg::InsertListViewItem {
-                        index: Some(row as i32),
-                        column_index: 0,
-                        text: Some(if m { "yes" } else { "" }.into()),
-                        image: None,
-                    },
+                    nwg::InsertListViewItem { index: Some(row as i32), column_index: 0, text: Some(if m { "yes" } else { "" }.into()), image: None },
                 );
             }
         }
@@ -802,22 +530,13 @@ impl App {
             Some(info) => {
                 let used = flags::uses(&text, info.flag);
                 let value = match (info.value, info.example) {
-                    (flags::Value::Required, ex) if !ex.is_empty() => {
-                        format!(" (adds \"{} {ex}\"; edit the value in the box)", info.flag)
-                    }
+                    (flags::Value::Required, ex) if !ex.is_empty() => format!(" (adds \"{} {ex}\"; edit the value in the box)", info.flag),
                     (flags::Value::Optional, _) => " (value optional)".to_string(),
                     _ => String::new(),
                 };
-                set_if(
-                    &self.ui.lbl_flag_detail,
-                    &format!("{} ({})\n{}{}", info.flag, info.group, info.text, value),
-                );
+                set_if(&self.ui.lbl_flag_detail, &format!("{} ({})\n{}{}", info.flag, info.group, info.text, value));
                 self.ui.btn_flag_toggle.set_enabled(true);
-                let (label, icon) = if used {
-                    ("Remove", &self.ui.g.minus)
-                } else {
-                    ("Add", &self.ui.g.plus)
-                };
+                let (label, icon) = if used { ("Remove", &self.ui.g.minus) } else { ("Add", &self.ui.g.plus) };
                 if kit::set_button_text(&self.ui.btn_flag_toggle, label) {
                     self.ui.btn_flag_toggle.set_icon(Some(icon));
                 }
@@ -830,20 +549,12 @@ impl App {
     }
 
     fn toggle_selected_flag(&self) {
-        let Some(info) = self.selected_flag() else {
-            return;
-        };
+        let Some(info) = self.selected_flag() else { return };
         let text = self.ui.txt_flags.text();
-        let (new, verb) = if flags::uses(&text, info.flag) {
-            (flags::remove(&text, info.flag), "Removed")
-        } else {
-            (flags::add(&text, info.flag), "Added")
-        };
+        let (new, verb) =
+            if flags::uses(&text, info.flag) { (flags::remove(&text, info.flag), "Removed") } else { (flags::add(&text, info.flag), "Added") };
         self.ui.txt_flags.set_text(&new);
-        self.log(format!(
-            "{verb} {} in the flags box. Press Apply to use it.",
-            info.flag
-        ));
+        self.log(format!("{verb} {} in the flags box. Press Apply to use it.", info.flag));
         self.refresh_flags_tab();
         self.flush_log();
     }
@@ -861,10 +572,7 @@ impl App {
 
     fn handle_strays(&self) {
         let ours = self.engine.lock().unwrap().pid();
-        let strays: Vec<u32> = engine::find_goodbyedpi_pids()
-            .into_iter()
-            .filter(|p| Some(*p) != ours)
-            .collect();
+        let strays: Vec<u32> = engine::find_goodbyedpi_pids().into_iter().filter(|p| Some(*p) != ours).collect();
         if strays.is_empty() {
             return;
         }
@@ -877,21 +585,10 @@ impl App {
              It bypasses the DPI no matter what Sidestep shows, and two copies can conflict.\n\n\
              Terminate it now?"
         );
-        if ask_yes_no(
-            Some(&self.ui.window),
-            "Another goodbyedpi is running",
-            &text,
-        ) {
+        if ask_yes_no(Some(&self.ui.window), "Another goodbyedpi is running", &text) {
             for pid in strays {
                 let ok = engine::kill_pid(pid);
-                self.log(format!(
-                    "  PID {pid}: {}",
-                    if ok {
-                        "terminated"
-                    } else {
-                        "could not terminate"
-                    }
-                ));
+                self.log(format!("  PID {pid}: {}", if ok { "terminated" } else { "could not terminate" }));
             }
         } else {
             self.log("  left running (your choice).");
@@ -900,21 +597,14 @@ impl App {
 
     fn start_engine(&self, flags_text: &str) -> bool {
         let args = flags::tokenize(flags_text);
-        let res = self
-            .engine
-            .lock()
-            .unwrap()
-            .start(&self.gdpi, &args, &self.tx, self.notice);
+        let res = self.engine.lock().unwrap().start(&self.gdpi, &args, &self.tx, self.notice);
         let mut st = self.st.borrow_mut();
         st.verify = Verify::Unknown;
         st.next_check = None;
         drop(st);
         match res {
             Ok(pid) => {
-                self.log(format!(
-                    "> goodbyedpi.exe {}   (PID {pid})",
-                    flags::join(&args)
-                ));
+                self.log(format!("> goodbyedpi.exe {}   (PID {pid})", flags::join(&args)));
                 self.st.borrow_mut().announce_pass = true;
                 true
             }
@@ -949,11 +639,7 @@ impl App {
         let msg = self.engine.lock().unwrap().stop();
         self.log(msg.unwrap_or_else(|| "goodbyedpi was not running".into()));
         let still = self.engine.lock().unwrap().is_running();
-        self.log(if still {
-            "ERROR: goodbyedpi still running after stop!".to_string()
-        } else {
-            format!("Off ({why}).")
-        });
+        self.log(if still { "ERROR: goodbyedpi still running after stop!".to_string() } else { format!("Off ({why}).") });
         self.st.borrow_mut().verify = Verify::Unknown;
         self.refresh();
     }
@@ -965,10 +651,7 @@ impl App {
             st.cfg.flags = text.clone();
             let _ = st.cfg.save();
         }
-        self.log(format!(
-            "Flags saved: {}",
-            if text.is_empty() { "(none)" } else { &text }
-        ));
+        self.log(format!("Flags saved: {}", if text.is_empty() { "(none)" } else { &text }));
         let running = self.engine.lock().unwrap().is_running();
         if running {
             self.cancel_tuner();
@@ -1008,10 +691,7 @@ impl App {
         let (tx, n) = (self.tx.clone(), self.notice);
         std::thread::spawn(move || {
             let (verdict, results) = probe::probe_all(&sites);
-            let lines = results
-                .iter()
-                .map(|r| format!("  {:<26} {:?}: {}", r.host, r.verdict, r.detail))
-                .collect();
+            let lines = results.iter().map(|r| format!("  {:<26} {:?}: {}", r.host, r.verdict, r.detail)).collect();
             let _ = tx.send(Ev::Probe { verdict, lines });
             n.notice();
         });
@@ -1037,9 +717,7 @@ impl App {
                     st.checks_blocked += 1;
                     st.last_check = Some((format!("blocked at {t}"), verdict));
                 }
-                Verdict::Unreachable => {
-                    st.last_check = Some((format!("sites unreachable at {t}"), verdict))
-                }
+                Verdict::Unreachable => st.last_check = Some((format!("sites unreachable at {t}"), verdict)),
             }
             let announce = running && verdict == Verdict::Pass && st.announce_pass;
             if running {
@@ -1101,19 +779,11 @@ impl App {
             }
             cands.sort_by_key(|&x| ((x as i16 - p as i16).abs(), x));
         }
-        self.log(format!(
-            "TTL search: will try --set-ttl {cands:?} against {}",
-            sites.join(", ")
-        ));
+        self.log(format!("TTL search: will try --set-ttl {cands:?} against {}", sites.join(", ")));
 
         let cancel = Arc::new(AtomicBool::new(false));
         *self.cancel_tune.borrow_mut() = cancel.clone();
-        let (eng, exe, tx, n) = (
-            self.engine.clone(),
-            self.gdpi.clone(),
-            self.tx.clone(),
-            self.notice,
-        );
+        let (eng, exe, tx, n) = (self.engine.clone(), self.gdpi.clone(), self.tx.clone(), self.notice);
         std::thread::spawn(move || tune_worker(eng, exe, base, cands, sites, cancel, tx, n));
         self.refresh();
     }
@@ -1167,11 +837,7 @@ impl App {
             let mut e = self.engine.lock().unwrap();
             let exited = e.poll();
             let mut c = false;
-            if e.is_running()
-                && !e.confirmed
-                && e.started_at
-                    .is_some_and(|t| t.elapsed() >= Duration::from_millis(1500))
-            {
+            if e.is_running() && !e.confirmed && e.started_at.map_or(false, |t| t.elapsed() >= Duration::from_millis(1500)) {
                 e.confirmed = true;
                 c = true;
             }
@@ -1187,11 +853,7 @@ impl App {
                     st.verify = Verify::Unknown;
                 }
                 self.log("Bypass is off. See goodbyedpi's output above for the reason.");
-                self.balloon(
-                    "goodbyedpi stopped",
-                    "goodbyedpi exited unexpectedly. Bypass is off.",
-                    true,
-                );
+                self.balloon("goodbyedpi stopped", "goodbyedpi exited unexpectedly. Bypass is off.", true);
             }
         }
         if confirmed_now && !tuning {
@@ -1202,8 +864,7 @@ impl App {
             st.desired_on
                 && !st.probing
                 && !st.tuning
-                && (st.verify == Verify::Unknown
-                    || st.next_check.is_none_or(|t| Instant::now() >= t))
+                && (st.verify == Verify::Unknown || st.next_check.map_or(true, |t| Instant::now() >= t))
         };
         if due && self.engine.lock().unwrap().confirmed {
             self.start_probe(false);
@@ -1266,13 +927,7 @@ impl App {
     fn refresh(&self) {
         let (running, confirmed, pid, uptime, active) = {
             let e = self.engine.lock().unwrap();
-            (
-                e.is_running(),
-                e.confirmed,
-                e.pid(),
-                e.started_at.map(|t| t.elapsed()),
-                e.active_flags.clone(),
-            )
+            (e.is_running(), e.confirmed, e.pid(), e.started_at.map(|t| t.elapsed()), e.active_flags.clone())
         };
         let view = self.view(running, confirmed);
         let shows_running = view != View::Off;
@@ -1294,64 +949,35 @@ impl App {
 
         // ---- header
         let (head, sub) = match view {
-            View::Off => (
-                "Bypass is off".to_string(),
-                "Nothing is filtering. goodbyedpi is not running.".to_string(),
-            ),
-            View::Starting => (
-                "Starting...".to_string(),
-                "goodbyedpi launched. Opening its packet filter.".to_string(),
-            ),
-            View::Checking => (
-                "Checking...".to_string(),
-                "goodbyedpi is running. Testing whether the sites pass.".to_string(),
-            ),
+            View::Off => ("Bypass is off".to_string(), "Nothing is filtering. goodbyedpi is not running.".to_string()),
+            View::Starting => ("Starting...".to_string(), "goodbyedpi launched. Opening its packet filter.".to_string()),
+            View::Checking => ("Checking...".to_string(), "goodbyedpi is running. Testing whether the sites pass.".to_string()),
             View::Tuning => (
                 "Searching for a TTL...".to_string(),
-                if steps > 0 {
-                    format!("Trying TTL {ttl_try} ({step} of {steps}). Sites may not load yet.")
-                } else {
-                    "Preparing...".into()
-                },
+                if steps > 0 { format!("Trying TTL {ttl_try} ({step} of {steps}). Sites may not load yet.") } else { "Preparing...".into() },
             ),
             View::On => (
                 "Bypass is on".to_string(),
                 format!(
                     "Sites pass{}{}{}",
-                    if up.is_empty() {
-                        String::new()
-                    } else {
-                        format!(", up {up}")
-                    },
+                    if up.is_empty() { String::new() } else { format!(", up {up}") },
                     ttl.map_or(String::new(), |t| format!(", TTL {t}")),
                     if probing_manual { ", checking..." } else { "" }
                 ),
             ),
             View::Blocked => (
                 "On, but blocked".to_string(),
-                if autotune {
-                    "The last check was blocked; a TTL search will retry.".into()
-                } else {
-                    "The last check was blocked. Try Find TTL now or other flags.".into()
-                },
+                if autotune { "The last check was blocked; a TTL search will retry.".into() } else { "The last check was blocked. Try Find TTL now or other flags.".into() },
             ),
-            View::Unreachable => (
-                "On, sites unreachable".to_string(),
-                "Can't reach the test sites at all (network, not the DPI).".to_string(),
-            ),
+            View::Unreachable => ("On, sites unreachable".to_string(), "Can't reach the test sites at all (network, not the DPI).".to_string()),
         };
         set_if(&ui.lbl_head, &head);
         set_if(&ui.lbl_sub, &sub);
-        let btn = if shows_running || desired {
-            "Turn off"
-        } else {
-            "Turn on"
-        };
+        let btn = if shows_running || desired { "Turn off" } else { "Turn on" };
         kit::set_button_text(&ui.btn_toggle, btn);
 
         // progress: marquee while we don't know yet, steps while tuning
-        let busy = matches!(view, View::Starting | View::Checking)
-            || (probing_manual && view != View::Tuning);
+        let busy = matches!(view, View::Starting | View::Checking) || (probing_manual && view != View::Tuning);
         ui.pb_busy.set_visible(busy);
         ui.pb_steps.set_visible(view == View::Tuning && steps > 0);
         if view == View::Tuning && steps > 0 {
@@ -1383,10 +1009,7 @@ impl App {
             View::Starting => "Sidestep: starting".to_string(),
             View::Checking => "Sidestep: checking".to_string(),
             View::Tuning => "Sidestep: searching for a TTL".to_string(),
-            View::On => format!(
-                "Sidestep: on{}",
-                ttl.map_or(String::new(), |t| format!(", TTL {t}"))
-            ),
+            View::On => format!("Sidestep: on{}", ttl.map_or(String::new(), |t| format!(", TTL {t}"))),
             View::Blocked => "Sidestep: on, but blocked".to_string(),
             View::Unreachable => "Sidestep: on, sites unreachable".to_string(),
         };
@@ -1397,34 +1020,13 @@ impl App {
 
         // ---- status tab
         let v = &ui.row_values;
-        set_if(
-            &v[R_ENGINE],
-            if running {
-                "goodbyedpi running"
-            } else {
-                "not running"
-            },
-        );
+        set_if(&v[R_ENGINE], if running { "goodbyedpi running" } else { "not running" });
         set_if(&v[R_PID], &pid.map_or("-".into(), |p| p.to_string()));
         set_if(&v[R_UPTIME], &uptime.map_or("-".into(), hms));
-        set_if(
-            &v[R_TTL],
-            &if running {
-                ttl.map_or("none (no --set-ttl)".into(), |t| t.to_string())
-            } else {
-                "-".into()
-            },
-        );
-        let flags_shown = if active.is_empty() {
-            "(goodbyedpi defaults)".to_string()
-        } else {
-            active.clone()
-        };
+        set_if(&v[R_TTL], &if running { ttl.map_or("none (no --set-ttl)".into(), |t| t.to_string()) } else { "-".into() });
+        let flags_shown = if active.is_empty() { "(goodbyedpi defaults)".to_string() } else { active.clone() };
         set_if(&v[R_FLAGS], &if running { flags_shown } else { "-".into() });
-        set_if(
-            &v[R_CHECK],
-            last_check.as_ref().map_or("not yet", |(s, _)| s.as_str()),
-        );
+        set_if(&v[R_CHECK], last_check.as_ref().map_or("not yet", |(s, _)| s.as_str()));
         set_if(&v[R_COUNTS], &format!("{ok} passed, {blocked} blocked"));
         let mark = last_check.as_ref().map(|(_, v)| *v);
         if self.shown_check.get() != Some(mark) {
@@ -1484,8 +1086,7 @@ impl App {
         ui.lbl_ref.set_size(x, y);
         let (x, y) = sz(484 + dw, 170 + dh);
         ui.lst_flags.set_size(x, y);
-        ui.lst_flags
-            .set_column_width(3, kit::px((212 + dw) as u32) as isize);
+        ui.lst_flags.set_column_width(3, kit::px((212 + dw) as u32) as isize);
         ui.lbl_flag_detail.set_position(16, 302 + dh);
         let (x, y) = sz(360 + dw, 58);
         ui.lbl_flag_detail.set_size(x, y);
@@ -1543,16 +1144,8 @@ impl App {
     }
 
     fn uninstall(&self) {
-        let title = if self.mode.is_portable() {
-            "Remove Sidestep data"
-        } else {
-            "Uninstall Sidestep"
-        };
-        if !ask_yes_no(
-            Some(&self.ui.window),
-            title,
-            &setup::uninstall_summary(&self.mode),
-        ) {
+        let title = if self.mode.is_portable() { "Remove Sidestep data" } else { "Uninstall Sidestep" };
+        if !ask_yes_no(Some(&self.ui.window), title, &setup::uninstall_summary(&self.mode)) {
             return;
         }
         self.cancel_tuner();
@@ -1560,10 +1153,7 @@ impl App {
         let _ = self.engine.lock().unwrap().stop();
         self.refresh();
         let done = setup::uninstall(&self.mode);
-        self.info(
-            "Sidestep removed",
-            &format!("Done:\n- {}\n\nSidestep will now close.", done.join("\n- ")),
-        );
+        self.info("Sidestep removed", &format!("Done:\n- {}\n\nSidestep will now close.", done.join("\n- ")));
         setup::schedule_file_deletion(&self.mode);
         self.exit();
     }
@@ -1571,11 +1161,7 @@ impl App {
     // ---------- autostart
     fn on_logon_changed(&self) {
         let want = checked(&self.ui.chk_logon);
-        let res = if want {
-            autostart::register(&self.mode.app_exe())
-        } else {
-            autostart::unregister()
-        };
+        let res = if want { autostart::register(&self.mode.app_exe()) } else { autostart::unregister() };
         match res {
             Ok(()) if want => self.log("Launch at logon on: scheduled task 'Sidestep' starts the app at logon (see Task Scheduler)."),
             Ok(()) => self.log("Launch at logon off: scheduled task removed."),
@@ -1639,10 +1225,7 @@ impl App {
                 let st = self.st.borrow();
                 (st.cfg.ttl_min, st.cfg.ttl_max, st.cfg.check_secs)
             };
-            let mut text: String = ROWS
-                .iter()
-                .map(|(n, d)| format!("{n}\n    {d}\n\n"))
-                .collect();
+            let mut text: String = ROWS.iter().map(|(n, d)| format!("{n}\n    {d}\n\n")).collect();
             text.push_str(&format!(
                 "Colours\n    Grey: off. Amber: running, but not confirmed to work yet. Green: on, and the last check passed.\n\n\
                  TTL search\n    Every {secs} s while the bypass is on, Sidestep runs a check. If it is blocked, goodbyedpi is \
@@ -1732,9 +1315,7 @@ fn tune_worker(
                 send(Ev::Log(format!("  {m}")));
             }
             if !g.is_running() {
-                send(Ev::Log(
-                    "  goodbyedpi did not stay up with these flags".into(),
-                ));
+                send(Ev::Log("  goodbyedpi did not stay up with these flags".into()));
                 continue;
             }
             g.confirmed = true;
@@ -1744,16 +1325,11 @@ fn tune_worker(
             return send(Ev::TuneDone(Err("cancelled".into())));
         }
         for r in &results {
-            send(Ev::Log(format!(
-                "  {:<26} {:?}: {}",
-                r.host, r.verdict, r.detail
-            )));
+            send(Ev::Log(format!("  {:<26} {:?}: {}", r.host, r.verdict, r.detail)));
         }
         match v {
             Verdict::Pass => return send(Ev::TuneDone(Ok((ttl, f)))),
-            Verdict::Unreachable => {
-                return restore("network unreachable during tuning (not a DPI block)".into())
-            }
+            Verdict::Unreachable => return restore("network unreachable during tuning (not a DPI block)".into()),
             Verdict::Blocked => {}
         }
     }
@@ -1780,17 +1356,14 @@ pub fn main() {
         }
         args.iter().position(|a| a == "--preview-main").map(|i| {
             let tab = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(0);
-            let view = args
-                .get(i + 2)
-                .and_then(|s| s.parse::<u8>().ok())
-                .map(|v| match v {
-                    1 => View::Starting,
-                    2 => View::Checking,
-                    3 => View::Tuning,
-                    4 => View::On,
-                    5 => View::Blocked,
-                    _ => View::Off,
-                });
+            let view = args.get(i + 2).and_then(|s| s.parse::<u8>().ok()).map(|v| match v {
+                1 => View::Starting,
+                2 => View::Checking,
+                3 => View::Tuning,
+                4 => View::On,
+                5 => View::Blocked,
+                _ => View::Off,
+            });
             (tab, view)
         })
     };
@@ -1823,18 +1396,12 @@ pub fn main() {
                 Ok(mode) => {
                     if ask_yes_no(None, "Uninstall Sidestep", &setup::uninstall_summary(&mode)) {
                         let done = setup::uninstall(&mode);
-                        nwg::simple_message(
-                            "Sidestep removed",
-                            &format!("Done:\n- {}", done.join("\n- ")),
-                        );
+                        nwg::simple_message("Sidestep removed", &format!("Done:\n- {}", done.join("\n- ")));
                         setup::schedule_file_deletion(&mode);
                     }
                 }
                 Err(_) => {
-                    nwg::simple_message(
-                        APP,
-                        "Sidestep is not set up on this PC. There is nothing to uninstall.",
-                    );
+                    nwg::simple_message(APP, "Sidestep is not set up on this PC. There is nothing to uninstall.");
                 }
             }
             return;
@@ -1888,10 +1455,7 @@ pub fn main() {
     let cfg = Config::load();
     ui.txt_flags.set_text(&cfg.flags);
     ui.txt_sites.set_text(&cfg.sites);
-    ui.lbl_detect_hint.set_text(&format!(
-        "Checks run every {} s while the bypass is on.",
-        cfg.check_secs
-    ));
+    ui.lbl_detect_hint.set_text(&format!("Checks run every {} s while the bypass is on.", cfg.check_secs));
     set_checked(&ui.chk_autotune, cfg.autotune);
     set_checked(&ui.chk_on_logon, cfg.on_at_logon);
     set_checked(&ui.chk_wrap, cfg.log_wrap);
@@ -1966,20 +1530,12 @@ pub fn main() {
             }
             E::OnNotice if handle == app.ui.notice.handle => app.drain(),
             E::OnTextInput if handle == app.ui.txt_flags.handle => app.refresh_flags_tab(),
-            E::OnListViewItemChanged if handle == app.ui.lst_flags.handle => {
-                app.refresh_flags_tab()
-            }
-            E::OnListViewDoubleClick if handle == app.ui.lst_flags.handle => {
-                app.toggle_selected_flag()
-            }
+            E::OnListViewItemChanged if handle == app.ui.lst_flags.handle => app.refresh_flags_tab(),
+            E::OnListViewDoubleClick if handle == app.ui.lst_flags.handle => app.toggle_selected_flag(),
             E::OnButtonClick => app.on_button(handle),
             E::OnMenuItemSelected => app.on_menu(handle),
             E::OnContextMenu if handle == app.ui.tray.handle => app.show_menu(),
-            E::OnMousePress(nwg::MousePressEvent::MousePressLeftUp)
-                if handle == app.ui.tray.handle =>
-            {
-                app.show_window()
-            }
+            E::OnMousePress(nwg::MousePressEvent::MousePressLeftUp) if handle == app.ui.tray.handle => app.show_window(),
             _ => {}
         }
     });
@@ -1996,22 +1552,14 @@ pub fn main() {
     app.log(format!(
         "Sidestep {} ready ({} mode). goodbyedpi: {}",
         env!("CARGO_PKG_VERSION"),
-        if app.mode.is_portable() {
-            "portable"
-        } else {
-            "installed"
-        },
+        if app.mode.is_portable() { "portable" } else { "installed" },
         app.gdpi.display()
     ));
     for n in &setup_notes {
         app.log(n);
     }
     if !repaired.is_empty() {
-        app.log(format!(
-            "Restored/updated in {}: {}",
-            app.mode.dir().display(),
-            repaired.join(", ")
-        ));
+        app.log(format!("Restored/updated in {}: {}", app.mode.dir().display(), repaired.join(", ")));
     }
     app.log("Nothing is filtering until you press Turn on.");
     app.apply_wrap();

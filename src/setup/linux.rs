@@ -61,12 +61,9 @@ pub fn find_system_ciadpi() -> Option<PathBuf> {
 }
 
 fn xdg_data_home() -> PathBuf {
-    std::env::var("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into()))
-                .join(".local/share")
-        })
+    std::env::var("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|_| {
+        PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/tmp".into())).join(".local/share")
+    })
 }
 
 pub fn user_data_dir() -> PathBuf {
@@ -98,9 +95,7 @@ pub fn portable_dir() -> PathBuf {
 
 pub fn detect() -> Mode {
     let p = portable_dir();
-    if p.join(PORTABLE_MARKER).is_file() {
-        return Mode::Portable(p);
-    }
+    if p.join(PORTABLE_MARKER).is_file() { return Mode::Portable(p); }
     Mode::Installed(user_data_dir())
 }
 
@@ -113,18 +108,10 @@ fn set_executable(p: &Path) {
 pub fn write_payload(dir: &Path) -> Result<Vec<&'static str>, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let dest = dir.join("ciadpi");
-    if dest.is_file() {
-        return Ok(vec![]);
-    }
+    if dest.is_file() { return Ok(vec![]); }
     // Prefer system binary; fall back to embedded bytes.
-    let wrote = if let Some(sys) = find_system_ciadpi() {
-        std::fs::copy(&sys, &dest).is_ok()
-    } else {
-        false
-    };
-    if !wrote {
-        std::fs::write(&dest, PAYLOAD[0].1).map_err(|e| format!("writing ciadpi: {e}"))?;
-    }
+    let wrote = if let Some(sys) = find_system_ciadpi() { std::fs::copy(&sys, &dest).is_ok() } else { false };
+    if !wrote { std::fs::write(&dest, PAYLOAD[0].1).map_err(|e| format!("writing ciadpi: {e}"))?; }
     set_executable(&dest);
     Ok(vec!["ciadpi"])
 }
@@ -133,8 +120,7 @@ pub fn install(dir: &Path) -> Result<Mode, String> {
     write_payload(dir)?;
 
     let bin_dir = user_bin_dir();
-    std::fs::create_dir_all(&bin_dir)
-        .map_err(|e| format!("creating {}: {e}", bin_dir.display()))?;
+    std::fs::create_dir_all(&bin_dir).map_err(|e| format!("creating {}: {e}", bin_dir.display()))?;
     let target = bin_dir.join(APP_EXE);
 
     if let Ok(me) = std::env::current_exe() {

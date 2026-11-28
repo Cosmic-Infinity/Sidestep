@@ -14,21 +14,9 @@ mod imp {
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
     fn schtasks(args: &[&str]) -> Result<String, String> {
-        let out = Command::new("schtasks")
-            .args(args)
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .map_err(|e| format!("running schtasks: {e}"))?;
-        let text = format!(
-            "{}{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        );
-        if out.status.success() {
-            Ok(text)
-        } else {
-            Err(text.trim().to_string())
-        }
+        let out = Command::new("schtasks").args(args).creation_flags(CREATE_NO_WINDOW).output().map_err(|e| format!("running schtasks: {e}"))?;
+        let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+        if out.status.success() { Ok(text) } else { Err(text.trim().to_string()) }
     }
 
     pub fn is_registered() -> bool {
@@ -36,10 +24,7 @@ mod imp {
     }
 
     fn xml_escape(s: &str) -> String {
-        s.replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;")
+        s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
     }
 
     pub fn register(exe: &Path) -> Result<(), String> {
@@ -73,6 +58,7 @@ mod imp {
             exe = xml_escape(&exe.display().to_string()),
         );
 
+        // schtasks wants UTF-16LE with BOM for /XML.
         let mut bytes = vec![0xFF, 0xFE];
         for u in xml.encode_utf16() {
             bytes.extend_from_slice(&u.to_le_bytes());
@@ -86,16 +72,13 @@ mod imp {
     }
 
     pub fn unregister() -> Result<(), String> {
-        if !is_registered() {
-            return Ok(());
-        }
+        if !is_registered() { return Ok(()); }
         schtasks(&["/Delete", "/TN", TASK, "/F"]).map(|_| ())
     }
 
+    /// Removes a task by name (used to clean up the old "DpiToggle" task).
     pub fn unregister_task(name: &str) -> Result<(), String> {
-        if schtasks(&["/Query", "/TN", name]).is_err() {
-            return Ok(());
-        }
+        if schtasks(&["/Query", "/TN", name]).is_err() { return Ok(()); }
         schtasks(&["/Delete", "/TN", name, "/F"]).map(|_| ())
     }
 }
@@ -131,7 +114,7 @@ mod imp {
              Type=Application\n\
              Name=Sidestep\n\
              Comment=Autonomous DPI Bypass\n\
-             Exec=\"{}\" daemon\n\
+             Exec=\"{}\"\n\
              Icon=sidestep\n\
              Terminal=false\n\
              Categories=Network;\n\
