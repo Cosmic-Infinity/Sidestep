@@ -1,55 +1,24 @@
 # ciadpi / ByeDPI on Linux
 
-Sidestep embeds a precompiled `ciadpi` binary for x86_64 Linux so that most users get a
-zero-dependency install. This binary is automatically extracted to your data directory
-on first run.
+In accordance with standard Linux packaging practices, Sidestep does **not** vendor precompiled ELF binaries in the git repository.
 
-## Why the embedded binary may not work for you
+Instead, Sidestep locates `ciadpi` automatically through:
+1. System installation (`/usr/bin/ciadpi`, `/usr/local/bin/ciadpi`, or your `PATH`)
+2. User binary directory (`~/.local/bin/ciadpi` or `~/.local/share/sidestep/ciadpi`)
+3. Automatic download of the official ByeDPI release matching your host architecture on setup
 
-| Situation | Effect |
-|---|---|
-| ARM64 / Asahi Linux / Raspberry Pi | The x86_64 binary will not execute — use a system package or build from source |
-| AUR / Flatpak / Debian packaging | Distro packaging policy forbids vendored precompiled binaries |
-| You prefer to audit what runs | Build from source and place the binary on your PATH |
-
-## Using a system-installed ciadpi
-
-If `ciadpi` is on your `PATH` (e.g. installed via your package manager), Sidestep finds
-and uses it automatically — the embedded binary is never extracted. No configuration
-needed.
+## Installing ciadpi via Package Manager
 
 ```sh
 # Arch Linux (AUR)
 yay -S byedpi
 
-# or build from source (any distro)
+# Or build from source (any distribution)
 git clone https://github.com/hufrea/byedpi
 cd byedpi && make
 sudo install -m755 ciadpi /usr/local/bin/ciadpi
 ```
 
-## For packagers (AUR / Flatpak / Debian)
+## For Packagers (AUR / Flatpak / Debian)
 
-Do **not** include `vendor/ciadpi` in your package. Instead:
-
-1. Declare `byedpi` (or equivalent) as a runtime dependency.
-2. Build Sidestep without the vendored binary by replacing `src/setup/linux.rs`'s
-   `PAYLOAD` constant with an empty slice:
-   ```rust
-   pub const PAYLOAD: [(&str, &[u8]); 0] = [];
-   ```
-   The runtime path (`find_system_ciadpi()`) will then locate the system binary.
-3. The build will still compile cleanly — `include_bytes!` on the ciadpi path only
-   runs if `PAYLOAD` references it.
-
-## Building ciadpi from source for non-x86_64
-
-```sh
-git clone https://github.com/hufrea/byedpi
-cd byedpi
-# For ARM64:
-make CC=aarch64-linux-gnu-gcc   # or just `make` on native ARM hardware
-sudo install -m755 ciadpi /usr/local/bin/ciadpi
-```
-
-After installation, `sidestep on` will pick it up without any further setup.
+Declare `byedpi` (or equivalent) as a runtime dependency. The runtime lookup (`find_system_ciadpi()`) locates the system binary automatically without any extra configuration.

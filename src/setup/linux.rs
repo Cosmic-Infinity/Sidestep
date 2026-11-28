@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-pub const PAYLOAD: [(&str, &[u8]); 1] = [("ciadpi", include_bytes!("../../vendor/ciadpi"))];
+pub const PAYLOAD: [(&str, &[u8]); 0] = [];
 pub const APP_NAME: &str = "Sidestep";
 const APP_EXE: &str = "sidestep";
 const PORTABLE_MARKER: &str = "PORTABLE.txt";
@@ -45,18 +45,20 @@ impl Mode {
 pub fn find_system_ciadpi() -> Option<PathBuf> {
     for p in ["/usr/bin/ciadpi", "/usr/local/bin/ciadpi", "/bin/ciadpi"] {
         let pb = PathBuf::from(p);
-        if pb.is_file() {
-            return Some(pb);
-        }
+        if pb.is_file() { return Some(pb); }
     }
     if let Ok(paths) = std::env::var("PATH") {
         for dir in std::env::split_paths(&paths) {
             let candidate = dir.join("ciadpi");
-            if candidate.is_file() {
-                return Some(candidate);
-            }
+            if candidate.is_file() { return Some(candidate); }
         }
     }
+    let user_bin = user_bin_dir().join("ciadpi");
+    if user_bin.is_file() { return Some(user_bin); }
+    let local = user_data_dir().join("ciadpi");
+    if local.is_file() { return Some(local); }
+    let vendor = PathBuf::from("vendor/ciadpi");
+    if vendor.is_file() { return Some(vendor); }
     None
 }
 
@@ -105,15 +107,51 @@ fn set_executable(p: &Path) {
     let _ = std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o755));
 }
 
+fn download_ciadpi(dest: &Path) -> Result<(), String> {
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "x86_64",
+        "aarch64" => "aarch64",
+        "arm" => "armv7l",
+        a => return Err(format!("unsupported architecture: {a}")),
+    };
+    let url = format!("https://github.com/hufrea/byedpi/releases/latest/download/byedpi-17.3-{arch}.tar.gz");
+    let tmp_tar = dest.with_extension("tar.gz");
+    let status = std::process::Command::new("curl")
+        .args(["-fsSL", &url, "-o", &tmp_tar.display().to_string()])
+        .status()
+        .map_err(|e| format!("curl failed: {e}"))?;
+    if !status.success() {
+        let _ = std::fs::remove_file(&tmp_tar);
+        return Err("downloading byedpi archive failed".into());
+    }
+    let parent = dest.parent().unwrap_or(Path::new("."));
+    let untar = std::process::Command::new("tar")
+        .args(["-xzf", &tmp_tar.display().to_string(), "-C", &parent.display().to_string(), "ciadpi"])
+        .status();
+    let _ = std::fs::remove_file(&tmp_tar);
+    if untar.map(|s| s.success()).unwrap_or(false) && dest.is_file() {
+        Ok(())
+    } else {
+        Err("extracting ciadpi failed".into())
+    }
+}
+
 pub fn write_payload(dir: &Path) -> Result<Vec<&'static str>, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
     let dest = dir.join("ciadpi");
     if dest.is_file() { return Ok(vec![]); }
-    // Prefer system binary; fall back to embedded bytes.
-    let wrote = if let Some(sys) = find_system_ciadpi() { std::fs::copy(&sys, &dest).is_ok() } else { false };
-    if !wrote { std::fs::write(&dest, PAYLOAD[0].1).map_err(|e| format!("writing ciadpi: {e}"))?; }
-    set_executable(&dest);
-    Ok(vec!["ciadpi"])
+    if let Some(sys) = find_system_ciadpi() {
+        if sys != dest {
+            let _ = std::fs::copy(&sys, &dest);
+            set_executable(&dest);
+        }
+        return Ok(vec!["ciadpi"]);
+    }
+    if download_ciadpi(&dest).is_ok() {
+        set_executable(&dest);
+        return Ok(vec!["ciadpi"]);
+    }
+    Err("ciadpi (ByeDPI) not found. Please install byedpi or place ciadpi in your PATH.".into())
 }
 
 pub fn install(dir: &Path) -> Result<Mode, String> {
