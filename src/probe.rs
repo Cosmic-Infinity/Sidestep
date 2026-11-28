@@ -21,6 +21,7 @@ pub enum Verdict {
     Unreachable,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SiteResult {
     pub host: String,
     pub verdict: Verdict,
@@ -50,7 +51,11 @@ pub fn parse_sites(list: &str) -> Vec<String> {
 
 /// Overall verdict: any block => Blocked; else any pass => Pass; else Unreachable.
 pub fn probe_all(sites: &[String]) -> (Verdict, Vec<SiteResult>) {
-    let results: Vec<SiteResult> = sites.iter().map(|h| probe_site(h)).collect();
+    probe_all_via(sites, None)
+}
+
+pub fn probe_all_via(sites: &[String], proxy: Option<SocketAddr>) -> (Verdict, Vec<SiteResult>) {
+    let results: Vec<SiteResult> = sites.iter().map(|h| probe_site_via(h, proxy)).collect();
     let v = if results.iter().any(|r| r.verdict == Verdict::Blocked) {
         Verdict::Blocked
     } else if results.iter().any(|r| r.verdict == Verdict::Pass) {
@@ -62,23 +67,95 @@ pub fn probe_all(sites: &[String]) -> (Verdict, Vec<SiteResult>) {
 }
 
 pub fn probe_site(host: &str) -> SiteResult {
-    let r = |verdict, detail: String| SiteResult { host: host.to_string(), verdict, detail };
+    probe_site_via(host, None)
+}
 
-    let addrs: Vec<SocketAddr> = match (host, 443).to_socket_addrs() {
-        Ok(a) => a.filter(|a| a.is_ipv4()).collect(),
-        Err(e) => return r(Verdict::Unreachable, format!("DNS lookup failed: {e}")),
-    };
-    let Some(addr) = addrs.first().copied() else {
-        return r(Verdict::Unreachable, "no IPv4 address".into());
-    };
-
-    let mut s = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
+fn socks5_connect(proxy: &SocketAddr, host: &str, port: u16) -> Result<TcpStream, (Verdict, String)> {
+    let mut s = match TcpStream::connect_timeout(proxy, Duration::from_secs(3)) {
         Ok(s) => s,
-        Err(e) => return r(Verdict::Unreachable, format!("TCP connect to {addr} failed: {e}")),
+        Err(e) => return Err((Verdict::Unreachable, format!("connect to proxy {proxy} failed: {e}"))),
     };
     let _ = s.set_nodelay(true);
     let _ = s.set_read_timeout(Some(Duration::from_secs(6)));
     let _ = s.set_write_timeout(Some(Duration::from_secs(5)));
+
+    // SOCKS5 greeting: [VER=5, NMETHODS=1, METHOD=0 (no auth)]
+    if let Err(e) = s.write_all(&[0x05, 0x01, 0x00]) {
+        return Err((Verdict::Unreachable, format!("SOCKS5 greeting send failed: {e}")));
+    }
+    let mut resp = [0u8; 2];
+    if let Err(e) = s.read_exact(&mut resp) {
+        return Err((Verdict::Unreachable, format!("SOCKS5 greeting read failed: {e}")));
+    }
+    if resp != [0x05, 0x00] {
+        return Err((Verdict::Unreachable, format!("SOCKS5 auth rejected: {resp:?}")));
+    }
+
+    // SOCKS5 connect request: [VER=5, CMD=1, RSV=0, ATYP=3 (domain), LEN, host, PORT]
+    let h_bytes = host.as_bytes();
+    if h_bytes.len() > 255 {
+        return Err((Verdict::Unreachable, "host name too long for SOCKS5".into()));
+    }
+    let mut req = Vec::with_capacity(7 + h_bytes.len());
+    req.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, h_bytes.len() as u8]);
+    req.extend_from_slice(h_bytes);
+    req.extend_from_slice(&port.to_be_bytes());
+    if let Err(e) = s.write_all(&req) {
+        return Err((Verdict::Unreachable, format!("SOCKS5 connect request failed: {e}")));
+    }
+
+    let mut reply = [0u8; 4];
+    if let Err(e) = s.read_exact(&mut reply) {
+        return Err((Verdict::Blocked, format!("SOCKS5 connect reply read failed: {e}")));
+    }
+    if reply[0] != 0x05 || reply[1] != 0x00 {
+        return Err((Verdict::Blocked, format!("SOCKS5 connect rejected with status 0x{:02x}", reply[1])));
+    }
+    let to_skip = match reply[3] {
+        1 => 4 + 2,
+        4 => 16 + 2,
+        3 => {
+            let mut len = [0u8; 1];
+            if let Err(e) = s.read_exact(&mut len) {
+                return Err((Verdict::Unreachable, format!("SOCKS5 bnd.addr len read failed: {e}")));
+            }
+            len[0] as usize + 2
+        }
+        _ => return Err((Verdict::Unreachable, "SOCKS5 unknown ATYP in reply".into())),
+    };
+    let mut skip_buf = vec![0u8; to_skip];
+    if let Err(e) = s.read_exact(&mut skip_buf) {
+        return Err((Verdict::Unreachable, format!("SOCKS5 bnd.addr read failed: {e}")));
+    }
+    Ok(s)
+}
+
+pub fn probe_site_via(host: &str, proxy: Option<SocketAddr>) -> SiteResult {
+    let r = |verdict, detail: String| SiteResult { host: host.to_string(), verdict, detail };
+
+    let (mut s, target_info) = if let Some(p) = proxy {
+        match socks5_connect(&p, host, 443) {
+            Ok(s) => (s, format!("via SOCKS5 {p}")),
+            Err((v, d)) => return r(v, d),
+        }
+    } else {
+        let addrs: Vec<SocketAddr> = match (host, 443).to_socket_addrs() {
+            Ok(a) => a.filter(|a| a.is_ipv4()).collect(),
+            Err(e) => return r(Verdict::Unreachable, format!("DNS lookup failed: {e}")),
+        };
+        let Some(addr) = addrs.first().copied() else {
+            return r(Verdict::Unreachable, "no IPv4 address".into());
+        };
+
+        let s = match TcpStream::connect_timeout(&addr, Duration::from_secs(5)) {
+            Ok(s) => s,
+            Err(e) => return r(Verdict::Unreachable, format!("TCP connect to {addr} failed: {e}")),
+        };
+        let _ = s.set_nodelay(true);
+        let _ = s.set_read_timeout(Some(Duration::from_secs(6)));
+        let _ = s.set_write_timeout(Some(Duration::from_secs(5)));
+        (s, format!("from {addr}"))
+    };
 
     if let Err(e) = s.write_all(&client_hello(host)) {
         return r(Verdict::Blocked, format!("send failed after connect: {e}"));
@@ -87,9 +164,9 @@ pub fn probe_site(host: &str) -> SiteResult {
     let mut buf = [0u8; 5];
     match s.read(&mut buf) {
         Ok(0) => r(Verdict::Blocked, "connection closed right after ClientHello".into()),
-        Ok(_) if buf[0] == 0x16 => r(Verdict::Pass, format!("ServerHello from {addr}")),
-        Ok(_) if buf[0] == 0x15 => r(Verdict::Pass, format!("TLS alert from {addr} (server reached)")),
-        Ok(_) => r(Verdict::Pass, format!("non-TLS reply from {addr} (server reached)")),
+        Ok(_) if buf[0] == 0x16 => r(Verdict::Pass, format!("ServerHello {target_info}")),
+        Ok(_) if buf[0] == 0x15 => r(Verdict::Pass, format!("TLS alert {target_info} (server reached)")),
+        Ok(_) => r(Verdict::Pass, format!("non-TLS reply {target_info} (server reached)")),
         Err(e) if matches!(e.kind(), ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted) => {
             r(Verdict::Blocked, "reset after ClientHello (DPI RST)".into())
         }

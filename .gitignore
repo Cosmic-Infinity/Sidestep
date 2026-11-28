@@ -12,8 +12,9 @@ desktop.ini
 .vscode/
 .idea/
 
-# Keep: Cargo.lock (this is a binary crate), vendor/ binaries, dist/.
-# Remove dist/ from tracking yourself if you'd rather not commit the built exe.
+# Cargo.lock is committed because this is an application crate (binary deliverable).
+# Library-only crates should omit it; applications should not.
 
 docs/diagrams
 probes_and_test
+vendor/ciadpi

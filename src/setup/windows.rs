@@ -23,9 +23,9 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// The engine. Icons are embedded in the exe and never written to disk.
 pub const PAYLOAD: [(&str, &[u8]); 3] = [
-    ("goodbyedpi.exe", include_bytes!("../vendor/goodbyedpi.exe")),
-    ("WinDivert.dll", include_bytes!("../vendor/WinDivert.dll")),
-    ("WinDivert64.sys", include_bytes!("../vendor/WinDivert64.sys")),
+    ("goodbyedpi.exe", include_bytes!("../../vendor/goodbyedpi.exe")),
+    ("WinDivert.dll", include_bytes!("../../vendor/WinDivert.dll")),
+    ("WinDivert64.sys", include_bytes!("../../vendor/WinDivert64.sys")),
 ];
 pub const APP_NAME: &str = "Sidestep";
 const APP_EXE: &str = "Sidestep.exe";

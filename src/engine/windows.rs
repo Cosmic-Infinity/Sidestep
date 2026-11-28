@@ -18,6 +18,8 @@ use std::time::Instant;
 
 use crate::Ev;
 
+pub type Notifier = nwg::NoticeSender;
+
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
 const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS: i32 = 9;
@@ -152,7 +154,7 @@ impl Engine {
         let pid = child.id();
         self.child = Some(child);
         self.started_at = Some(Instant::now());
-        self.active_flags = sidestep_core::flags::join(args);
+        self.active_flags = crate::flags::join(args);
         self.confirmed = false;
         Ok(pid)
     }

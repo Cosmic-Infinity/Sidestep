@@ -1,9 +1,14 @@
 //! goodbyedpi command-line handling: tokenising, TTL rewriting, and the flag
 //! reference shown in the Flags tab.
 
+use std::net::SocketAddr;
+
 /// Starting point. No TTL here on purpose: TTL search adds `--set-ttl N` after it
 /// has *measured* which N gets past the DPI.
+#[cfg(windows)]
 pub const DEFAULT_FLAGS: &str = "-e 2 --reverse-frag --max-payload --wrong-chksum";
+#[cfg(not(windows))]
+pub const DEFAULT_FLAGS: &str = "--tlsrec 1 -s 1+s -d 1+s";
 
 pub fn tokenize(s: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -44,17 +49,32 @@ pub fn join(tokens: &[String]) -> String {
 
 pub fn get_ttl(flags: &str) -> Option<u8> {
     let t = tokenize(flags);
-    t.iter().position(|x| x == "--set-ttl").and_then(|i| t.get(i + 1)).and_then(|v| v.parse().ok())
+    t.iter().position(|x| x == "--set-ttl" || x == "-t" || x == "--ttl").and_then(|i| t.get(i + 1)).and_then(|v| v.parse().ok())
 }
 
-/// Returns `flags` with exactly one `--set-ttl ttl` and no `--auto-ttl`
+/// Returns `flags` with exactly one `--set-ttl ttl` (or `-t ttl`) and no `--auto-ttl`
 /// (the two conflict). Everything else is preserved in order.
 pub fn with_ttl(flags: &str, ttl: u8) -> String {
-    let without = remove(&remove(flags, "--set-ttl"), "--auto-ttl");
+    let is_byedpi = uses(flags, "-t") || uses(flags, "--ttl") || uses(flags, "--tlsrec") || (!uses(flags, "--set-ttl") && uses(flags, "-f"));
+    let without = remove(&remove(&remove(&remove(flags, "--set-ttl"), "--auto-ttl"), "-t"), "--ttl");
     let mut t = tokenize(&without);
-    t.push("--set-ttl".into());
+    if is_byedpi { t.push("-t".into()); } else { t.push("--set-ttl".into()); }
     t.push(ttl.to_string());
     join(&t)
+}
+
+pub fn proxy_addr(flags: &str) -> SocketAddr {
+    format!("127.0.0.1:{}", parse_proxy_port(flags)).parse().unwrap()
+}
+
+pub fn parse_proxy_port(flags: &str) -> u16 {
+    let tokens = tokenize(flags);
+    for w in tokens.windows(2) {
+        if (w[0] == "-p" || w[0] == "--port") && !w[1].starts_with('-') {
+            if let Ok(p) = w[1].parse::<u16>() { return p; }
+        }
+    }
+    1080
 }
 
 // ----------------------------------------------------------------- reference
@@ -123,8 +143,17 @@ pub const ALL: &[FlagInfo] = &[
     f("-5", N, "", "Preset", "-f 2 -e 2 --auto-ttl --reverse-frag --max-payload."),
 ];
 
+pub const BYEDPI_FLAGS: &[FlagInfo] = &[
+    f("--tlsrec", R, "1", "TLS Record", "Split TLS record at offset N (e.g. 1 or 1+s)."),
+    f("-s", R, "1+s", "Split", "Split data stream at offset N."),
+    f("-d", R, "1+s", "Disorder", "Send stream split parts out of order."),
+    f("-f", R, "1+s", "Fake Packet", "Inject fake packet at offset N."),
+    f("-t", R, "3", "TTL", "Set TTL for fake injected packets."),
+    f("-p", R, "1080", "Proxy Port", "SOCKS5 proxy port to listen on (default 1080)."),
+];
+
 pub fn info(flag: &str) -> Option<&'static FlagInfo> {
-    ALL.iter().find(|i| i.flag == flag)
+    ALL.iter().find(|i| i.flag == flag).or_else(|| BYEDPI_FLAGS.iter().find(|i| i.flag == flag))
 }
 
 fn takes_value(info: Option<&FlagInfo>, next: Option<&String>) -> bool {
@@ -184,6 +213,12 @@ mod tests {
         assert_eq!(with_ttl("--set-ttl 5 --wrong-seq", 7), "--wrong-seq --set-ttl 7");
         assert_eq!(get_ttl("--wrong-seq --set-ttl 7"), Some(7));
         assert_eq!(get_ttl(DEFAULT_FLAGS), None);
+    }
+    #[test]
+    fn byedpi_ttl() {
+        assert_eq!(with_ttl("--tlsrec 1 -s 1+s -d 1+s", 4), "--tlsrec 1 -s 1+s -d 1+s -t 4");
+        assert_eq!(with_ttl("-s 1+s -t 2", 8), "-s 1+s -t 8");
+        assert_eq!(get_ttl("--tlsrec 1 -t 5"), Some(5));
     }
     #[test]
     fn quoting() {

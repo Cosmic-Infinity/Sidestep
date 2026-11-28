@@ -19,7 +19,7 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             flags: sidestep_core::flags::DEFAULT_FLAGS.into(),
-            sites: "epicgames.com, store.steampowered.com, gog.com".into(),
+            sites: "epicgames.com, store.steampowered.com, gog.com, torrentgalaxy.info".into(),
             autotune: true,
             on_at_logon: false,
             check_secs: 90,
@@ -42,7 +42,9 @@ pub fn data_dir() -> PathBuf {
 }
 
 fn path() -> PathBuf {
-    data_dir().join("config.ini")
+    let d = data_dir();
+    let _ = std::fs::create_dir_all(&d);
+    d.join("config.ini")
 }
 
 impl Config {
